@@ -27,7 +27,6 @@ You will need a FREE license key for IRIS available from [iris.cs.bath.ac.uk](ht
 ## 🆘 Resources & Support 
 Please request access from mrt64@bath.ac.uk if you can't see these repositories
 - [Documentation](https://ReCapture.cs.bath.ac.uk)
-- [Issue Tracker](https://github.com/Bath-Impact-Lab/IRIS/issues)
 
 Built with ❤️ by the **Bath Impact Lab**.
 
