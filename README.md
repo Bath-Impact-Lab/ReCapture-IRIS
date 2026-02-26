@@ -7,6 +7,8 @@ ReCapture is a desktop application that delivers real-time gait analysis using c
 
 Get your development environment running in minutes:
 
+Download and install [IRIS](https://iris.cs.bath.ac.uk/).
+
 ```powershell
 # Install dependencies
 npm install
@@ -17,7 +19,7 @@ npm run dev
 # Build for production
 npm run build
 ```
-You will need a FREE license key for IRIS available from [iris.cs.bath.ac.uk](https://iris.cs.bath.ac.uk/).
+After running application, you will need to enter a FREE license key for IRIS available from [iris.cs.bath.ac.uk](https://iris.cs.bath.ac.uk/).
 
 ## 🆘 Resources & Support 
 Please request access from mrt64@bath.ac.uk if you can't see these repositories
