@@ -19,11 +19,6 @@ npm run build
 ```
 You will need a FREE license key for IRIS available from [iris.cs.bath.ac.uk](https://iris.cs.bath.ac.uk/).
 
-## 🛠️ Key Features
-- **Real-time Pose Streaming**: Seamless integration with the IRIS vision engine.
-- **Ready-to-use 3D Scene**: Three.js integration with OBJ/glTF support pre-configured.
-- **Modern Tech Stack**: Built with Electron, Vite, and Vue 3 for optimal performance.
-
 ## 🆘 Resources & Support 
 Please request access from mrt64@bath.ac.uk if you can't see these repositories
 - [Documentation](https://ReCapture.cs.bath.ac.uk)
