@@ -9,3 +9,7 @@ contextBridge.exposeInMainWorld('ipc', {
     })
   }
 })
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  openExternal: async (url) => ipcRenderer.invoke('open-external', url),
+})

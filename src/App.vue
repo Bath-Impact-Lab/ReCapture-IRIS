@@ -165,7 +165,7 @@
       <div class="hud-sep"></div>
       <div class="hud-item">
         <span :class="['dot', running ? 'ok' : 'warn']"></span>
-        <span>{{ running ? 'IRIS running' : 'IRIS inavtive' }}</span>
+        <span>{{ running ? 'IRIS running' : 'IRIS inactive' }}</span>
       </div>
       <div class="hud-sep" v-if="isDev"></div>
       <button class="btn btn-mini" v-if="isDev" @click="debugOpen = !debugOpen">{{ debugOpen ? 'Hide' : 'Show' }} debug</button>

@@ -57,6 +57,9 @@ interface IrisData {
 }
 
 interface Window {
+  electronAPI?: {
+    openExternal: (url: string) => {ok: boolean, error?: string},
+  }
   ipc?: {
     startIRIS: (options: any) => Promise<any>;
     stopIRIS: (Id: any) => Promise<any>;
