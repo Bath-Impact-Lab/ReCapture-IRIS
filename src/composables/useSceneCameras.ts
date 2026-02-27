@@ -1,6 +1,6 @@
 import { ref, watch, type Ref } from 'vue';
 import * as THREE from 'three';
-import cameraConfig from '@/assets/cameraPositions.json';
+import cameraConfig from '../../public/assets/cameraPositions.json';
 
 export interface SceneCameraDef {
   name: string;
@@ -13,50 +13,97 @@ export interface SceneCameraEntry {
   name: string;
   color: string;
   camera: THREE.PerspectiveCamera;
-  /** Small pyramid mesh pointing in the lookAt direction (Blender-style) */
-  pyramidMesh: THREE.Mesh;
+  gizmoMesh: THREE.Group;
   visible: boolean;
 }
 
-const PYRAMID_SIZE = 0.25; // height of the small pyramid
+const GIZMO_SCALE = 0.2;
 
-/**
- * Build a small cone (pyramid) mesh oriented so that its flat base
- * faces the lookAt target — like Blender's camera gizmo.
- */
-function createCameraPyramid(
+function createCameraGizmo(
   position: { x: number; y: number; z: number },
   lookAt: { x: number; y: number; z: number },
   color: string,
-): THREE.Mesh {
-  // ConeGeometry with 4 radial segments → pyramid shape
-  const geo = new THREE.ConeGeometry(PYRAMID_SIZE * 0.6, PYRAMID_SIZE, 4);
-  // Default cone points along +Y. Rotate so the tip points along +Z
-  // (away from camera forward). After lookAt, the flat base will face the target.
-  geo.rotateX(-Math.PI / 2);
+  rotationDeg: number = 0,
+): THREE.Group {
+  const s = GIZMO_SCALE;
 
-  const mat = new THREE.MeshBasicMaterial({
+  const hw = s * 0.8;
+  const hh = s * 0.45;
+
+  const fd = s * 1.6;
+
+  const apex: [number, number, number] = [0, 0, 0];
+
+  const tl: [number, number, number] = [-hw,  hh, fd];
+  const tr: [number, number, number] = [ hw,  hh, fd];
+  const br: [number, number, number] = [ hw, -hh, fd];
+  const bl: [number, number, number] = [-hw, -hh, fd];
+
+  const lineVerts = new Float32Array([
+    ...tl, ...tr,
+    ...tr, ...br,
+    ...br, ...bl,
+    ...bl, ...tl,
+
+    ...apex, ...tl,
+    ...apex, ...tr,
+    ...apex, ...br,
+    ...apex, ...bl,
+  ]);
+
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(lineVerts, 3));
+
+  const lineMat = new THREE.LineBasicMaterial({
     color: new THREE.Color(color),
-    wireframe: true,
     depthTest: true,
   });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(position.x, position.y, position.z);
 
-  // Point the mesh at the lookAt target — flat base now faces that direction
-  mesh.lookAt(lookAt.x, lookAt.y, lookAt.z);
+  const lines = new THREE.LineSegments(lineGeo, lineMat);
 
-  return mesh;
+  // Apply camera body rotation around the local Z axis (the viewing direction)
+  const rotRad = (rotationDeg * Math.PI) / 180;
+  lines.rotation.z = rotRad;
+
+  const gap   = s * 0.08;
+  const triH  = s * 0.3;
+  const triW  = s * 0.25;
+  const triY  = hh + gap;
+
+  const triVerts = new Float32Array([
+    -triW, triY,        fd,
+     triW, triY,        fd,
+        0, triY + triH, fd,
+  ]);
+
+  const triGeo = new THREE.BufferGeometry();
+  triGeo.setAttribute('position', new THREE.BufferAttribute(triVerts, 3));
+  triGeo.setIndex([0, 1, 2]);
+
+  const triMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(color),
+    side: THREE.DoubleSide,
+    depthTest: true,
+  });
+
+  const triMesh = new THREE.Mesh(triGeo, triMat);
+  triMesh.rotation.z = rotRad;
+
+  const group = new THREE.Group();
+  group.add(lines);
+  group.add(triMesh);
+
+  group.position.set(position.x, position.y, position.z);
+
+  group.lookAt(lookAt.x, lookAt.y, lookAt.z);
+
+  return group;
 }
 
 export function useSceneCameras(selectedCount?: Ref<number>) {
   const sceneCameras = ref<SceneCameraEntry[]>([]);
   let attachedScene: THREE.Scene | null = null;
 
-  /**
-   * Create cameras from JSON config and add them (plus pyramid meshes) to the scene.
-   * All start hidden — visibility syncs with selectedCount.
-   */
   function addToScene(scene: THREE.Scene) {
     attachedScene = scene;
     const defs = (cameraConfig.staticCameras ?? []) as SceneCameraDef[];
@@ -68,23 +115,22 @@ export function useSceneCameras(selectedCount?: Ref<number>) {
       cam.name = def.name;
       cam.updateProjectionMatrix();
 
-      const pyramidMesh = createCameraPyramid(def.position, def.lookAt, def.color);
-      pyramidMesh.name = `${def.name}_pyramid`;
-      pyramidMesh.visible = false; // hidden until synced
+      const gizmoMesh = createCameraGizmo(def.position, def.lookAt, def.color);
+      gizmoMesh.name = `${def.name}_gizmo`;
+      gizmoMesh.visible = false;
 
       scene.add(cam);
-      scene.add(pyramidMesh);
+      scene.add(gizmoMesh);
 
       sceneCameras.value.push({
         name: def.name,
         color: def.color,
         camera: cam,
-        pyramidMesh,
+        gizmoMesh,
         visible: false,
       });
     }
 
-    // Initial sync
     syncVisibility();
   }
 
@@ -93,23 +139,39 @@ export function useSceneCameras(selectedCount?: Ref<number>) {
     const count = selectedCount?.value ?? 0;
     for (let i = 0; i < sceneCameras.value.length; i++) {
       const show = i < count;
-      sceneCameras.value[i].pyramidMesh.visible = show;
+      sceneCameras.value[i].gizmoMesh.visible = show;
       sceneCameras.value[i].visible = show;
     }
   }
 
-  // Watch the selected count and re-sync automatically
+  /** Update the rotation of a scene camera gizmo by index. */
+  function setGizmoRotation(index: number, rotationDeg: number) {
+    const entry = sceneCameras.value[index];
+    if (!entry) return;
+
+    const rotRad = (rotationDeg * Math.PI) / 180;
+    // Both children (lines + triangle) rotate together
+    for (const child of entry.gizmoMesh.children) {
+      child.rotation.z = rotRad;
+    }
+  }
+
   if (selectedCount) {
     watch(selectedCount, () => syncVisibility());
   }
 
-  /** Remove all scene cameras and pyramid meshes from the scene. */
   function dispose() {
     for (const entry of sceneCameras.value) {
-      attachedScene?.remove(entry.pyramidMesh);
+      attachedScene?.remove(entry.gizmoMesh);
       attachedScene?.remove(entry.camera);
-      (entry.pyramidMesh.geometry as THREE.BufferGeometry).dispose();
-      ((entry.pyramidMesh.material as THREE.Material)).dispose();
+      entry.gizmoMesh.traverse((child) => {
+        if ((child as THREE.Mesh).geometry) {
+          (child as THREE.Mesh).geometry.dispose();
+        }
+        if ((child as THREE.Mesh).material) {
+          ((child as THREE.Mesh).material as THREE.Material).dispose();
+        }
+      });
     }
     sceneCameras.value = [];
     attachedScene = null;
@@ -119,6 +181,7 @@ export function useSceneCameras(selectedCount?: Ref<number>) {
     sceneCameras,
     addToScene,
     syncVisibility,
+    setGizmoRotation,
     dispose,
   } as const;
 }

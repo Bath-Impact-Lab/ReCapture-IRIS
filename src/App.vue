@@ -109,7 +109,7 @@
       <div class="nav-right">
         <div class="menu-right">
           <button class="btn btn-icon" @click="toggleSignIn" aria-label="Settings" :disabled="running">
-            <img src="./../assets/settings.svg" alt="">
+            <img src="/assets/settings.svg" alt="">
           </button>
         </div>
       </div>
@@ -313,7 +313,7 @@ const {
 
 // Construct scene camera
 const selectedCameraCount = computed(() => selectedDevices.value?.length ?? 0);
-const { sceneCameras, addToScene: addSceneCameras, dispose: disposeSceneCameras } = useSceneCameras(selectedCameraCount);
+const { sceneCameras, addToScene: addSceneCameras, setGizmoRotation, dispose: disposeSceneCameras } = useSceneCameras(selectedCameraCount);
 
 const activeCameraOptionId = computed(() => (devices.value.length > 0 ? `cam-opt-${cameraHoverIndex.value}` : undefined));
 
@@ -453,9 +453,35 @@ function onClickOutside(e: MouseEvent) {
 
 function selectDevice(d: MediaDeviceInfo, i: number){
   selectCamera(d);
-  
+
   const isSelected = selectedDevices.value?.some(sd => sd.deviceId === d.deviceId);
 
+  if (isSelected) {
+    startCameraStream(d, i);
+    // Initialize rotation angle for this device if not already set
+    if (cameraRotation.value[d.deviceId] === undefined) {
+      cameraRotation.value[d.deviceId] = 0;
+    }
+  } else {
+    stopCameraStream(i);
+  }
+  
+  // Send camera info to IRIS mock bridge (including rotation)
+  const info = {
+    type: 'camera-info',
+    payload: {
+      deviceId: d.deviceId,
+      label: d.label,
+      kind: d.kind,
+      ts: Date.now(),
+      rotation: cameraRotation.value[d.deviceId] || 0
+    }
+  };
+  console.log('[IRIS send] camera-info', info);
+  lastSentMsg.value = JSON.stringify(info, null, 2);
+  (window as any).electronAPI?.irisSend?.(info);
+
+  refresh();
   if (isSelected) {
     startCameraStream(d, i);
     // Initialize rotation angle for this device if not already set
@@ -502,6 +528,27 @@ function refresh() {
 function rotateCamera(d: MediaDeviceInfo, index: number) {
   const currentAngle = cameraRotation.value[d.deviceId] || 0;
   const newAngle = (currentAngle + 90) % 360;
+  cameraRotation.value[d.deviceId] = newAngle;
+
+  // Notify IRIS backend about the rotation change
+  const info = {
+    type: 'camera-info',
+    payload: {
+      deviceId: d.deviceId,
+      label: d.label,
+      kind: d.kind,
+      ts: Date.now(),
+      rotation: newAngle
+    }
+  };
+  console.log('[IRIS send] camera-info (rotate)', info);
+  lastSentMsg.value = JSON.stringify(info, null, 2);
+  (window as any).electronAPI?.irisSend?.(info);
+
+  // Update the 3D scene camera gizmo rotation
+  setGizmoRotation(index, newAngle);
+
+  rotation(d, newAngle, index);
   cameraRotation.value[d.deviceId] = newAngle;
   rotation(d, newAngle, index);
 }
@@ -640,7 +687,7 @@ function initThree(container: HTMLElement){
   addSceneCameras(scene);
 
   const clock = new THREE.Clock();
-  
+
   //if using a positions json
   const fps = 30
   const frameDuration = 1000/fps
@@ -651,7 +698,7 @@ function initThree(container: HTMLElement){
     requestAnimationFrame(animate)
     const delta = clock.getDelta()
     if (mixer) mixer.forEach((mix) => mix.update(delta))
-    
+
     if (irisData) {
       //used for data from position json file
       if (time - lastTime >= frameDuration && Array.isArray(irisData)) {
@@ -669,7 +716,7 @@ function initThree(container: HTMLElement){
     renderer?.render(scene, camera)
   };
   animate(lastTime)
-  
+
   resizeObserver = new ResizeObserver(entries => {
     for (const entry of entries){
       const w = entry.contentRect.width; const h = entry.contentRect.height;
@@ -775,24 +822,24 @@ async function startIris() {
       height: 1080,
       fps: 100,
       rotation: cameraRotation.value[d.deviceId] ? cameraRotation.value[d.deviceId] : 0
-    })) 
+    }))
     const options = {
       kp_format: "halpe26",
       subjects: personCount.value,
       cameras: cameras,
       camera_width: 1920,
-      camera_height: 1080, 
+      camera_height: 1080,
       video_fps: 100,
       output_dir: "",
       stream: true,
-    } 
-    
+    }
+
     selectedDevices.value?.forEach((_, i) => {
       stopCameraStream(i)
     });
     await new Promise( resolve => setTimeout(resolve, 1000))
-    
-    running.value = true 
+
+    running.value = true
     // iris start command goes here:
     await window.ipc?.startIRIS(options)
   }
@@ -1191,7 +1238,7 @@ function renderIRISdata(poseInfo: IrisData) {
   right: 0px; 
   height: calc(100% - 63px); 
   width: 250px; 
-  background-color: var(--sidebar); 
+  background-color: var(--sidebar);
   z-index: 10;
   border-left: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
@@ -1233,12 +1280,12 @@ function renderIRISdata(poseInfo: IrisData) {
 .iris-controls {
   padding: 10px 5px;
   background-color: var(--sidebar);
-  position: absolute; 
+  position: absolute;
   bottom: 0px;
-  width: 100%; 
-  height: 25%; 
-  display: flex; 
-  flex-direction: column; 
+  width: 100%;
+  height: 25%;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   z-index: 100;
 }
