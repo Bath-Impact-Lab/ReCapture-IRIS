@@ -40,6 +40,29 @@ interface Window {
       verbose?: boolean;
     }) => Promise<{ ok: boolean; outputDir?: string; args?: string[]; error?: string }>;
     stopIrisRecord: () => Promise<{ ok: boolean; error?: string }>;
+    startIrisScaleExtrinsicsRecord: (options: {
+      projectPath: string;
+      shmName?: string;
+      fps?: number;
+      pipePath?: string;
+      pipeId?: number;
+      drawBboxes?: boolean;
+      drawKeypoints?: boolean;
+      verbose?: boolean;
+      markerSize?: number;
+      markerId?: number;
+      dictionaryId?: number;
+    }) => Promise<{ ok: boolean; outputDir?: string; args?: string[]; error?: string }>;
+    stopIrisScaleExtrinsicsRecord: () => Promise<{
+      ok: boolean;
+      outputDir?: string;
+      outputPath?: string;
+      scaleFactor?: number | null;
+      result?: any;
+      videoPaths?: string[];
+      args?: string[];
+      error?: string;
+    }>;
     getHardwareCameras: () => Promise<{ ok: boolean; data?: { id: number; name: string }[]; error?: string }>;
     getExtrinsics: (outputDir?: string) => Promise<any>;
     getScene: (outputDir?: string) => Promise<string | null>;

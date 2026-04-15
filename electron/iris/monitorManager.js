@@ -41,6 +41,10 @@ class MonitorManager {
     this.monitorProcess = null;
   }
 
+  isRunning() {
+    return this.monitorProcess !== null;
+  }
+
   async start(options = {}) {
     if (this.monitorProcess) {
       await this.stop();
@@ -83,6 +87,10 @@ class MonitorManager {
 
       if (Number.isFinite(options.pipeId)) {
         args.push('--pipe-id', String(options.pipeId));
+      }
+
+      if (Number.isFinite(options.scale) && options.scale > 0) {
+        args.push('--scale', String(options.scale));
       }
 
       if (options.savePoses === true) args.push('--save-poses');

@@ -84,7 +84,7 @@
       </div>
     </div>
 
-    <template v-if="showStartButton || showStopButton || showRecordButton">
+    <template v-if="showStartButton || showStopButton || showScaleButton || showRecordButton">
       <div class="toolbar-divider"></div>
 
       <button
@@ -105,6 +105,17 @@
         @click="emit('stop-iris')"
       >
         {{ stopLabel }}
+      </button>
+
+      <button
+        v-if="showScaleButton"
+        class="toolbar-action toolbar-action-scale"
+        :class="{ 'toolbar-action-scale-recording': isScaleRecording }"
+        type="button"
+        :disabled="scaleDisabled"
+        @click="emit('toggle-scale-recording')"
+      >
+        {{ scaleLabel }}
       </button>
 
       <button
@@ -131,13 +142,17 @@ interface Props {
   rotation?: number;
   showStartButton?: boolean;
   showStopButton?: boolean;
+  showScaleButton?: boolean;
   showRecordButton?: boolean;
   isStartingIris?: boolean;
   isStoppingIris?: boolean;
   isIrisRunning?: boolean;
+  isScaleRecording?: boolean;
+  isScalingExtrinsics?: boolean;
   isRecording?: boolean;
   startDisabled?: boolean;
   stopDisabled?: boolean;
+  scaleDisabled?: boolean;
   recordDisabled?: boolean;
 }
 
@@ -147,13 +162,17 @@ const props = withDefaults(defineProps<Props>(), {
   rotation: 0,
   showStartButton: false,
   showStopButton: false,
+  showScaleButton: false,
   showRecordButton: false,
   isStartingIris: false,
   isStoppingIris: false,
   isIrisRunning: false,
+  isScaleRecording: false,
+  isScalingExtrinsics: false,
   isRecording: false,
   startDisabled: false,
   stopDisabled: false,
+  scaleDisabled: false,
   recordDisabled: false,
 });
 
@@ -163,6 +182,7 @@ const emit = defineEmits<{
   'update:rotation': [value: number];
   'start-iris': [];
   'stop-iris': [];
+  'toggle-scale-recording': [];
   'toggle-recording': [];
 }>();
 
@@ -177,6 +197,10 @@ const startLabel = computed(() => {
 const stopLabel = computed(() => {
   if (props.isStoppingIris) return 'Stopping IRIS...';
   return 'Stop IRIS';
+});
+const scaleLabel = computed(() => {
+  if (props.isScalingExtrinsics) return 'Scaling...';
+  return props.isScaleRecording ? 'Stop Scale Capture' : 'Scale Extrinsics';
 });
 const recordLabel = computed(() => props.isRecording ? 'Stop Recording' : 'Record');
 
@@ -351,6 +375,20 @@ watch(() => props.rotation, (newVal) => { selectedRotation.value = newVal; });
   border-color: rgba(255, 107, 107, 0.44);
 }
 
+.toolbar-action-scale {
+  border-color: rgba(59, 130, 246, 0.24);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(14, 165, 233, 0.16));
+}
+
+.toolbar-action-scale:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.44);
+}
+
+.toolbar-action-scale-recording {
+  border-color: rgba(59, 130, 246, 0.52);
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.28), rgba(14, 165, 233, 0.22));
+}
+
 .toolbar-action-record {
   border-color: rgba(244, 63, 94, 0.24);
   background: linear-gradient(135deg, rgba(244, 63, 94, 0.22), rgba(251, 113, 133, 0.14));
@@ -374,6 +412,17 @@ watch(() => props.rotation, (newVal) => { selectedRotation.value = newVal; });
 [data-theme="light"] .toolbar-action-danger {
   background: linear-gradient(135deg, rgba(220, 38, 38, 0.14), rgba(249, 115, 22, 0.14));
   border-color: rgba(185, 28, 28, 0.18);
+}
+
+[data-theme="light"] .toolbar-action-scale {
+  color: #1d4ed8;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.1));
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+[data-theme="light"] .toolbar-action-scale-recording {
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.18), rgba(14, 165, 233, 0.14));
+  border-color: rgba(29, 78, 216, 0.34);
 }
 
 [data-theme="light"] .toolbar-action-record {

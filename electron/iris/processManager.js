@@ -93,6 +93,11 @@ class ProcessManager {
       '--pipe', PIPE_NAME,
       '--fps', String(options.video_fps || 30),
     ];
+
+    if (Number.isFinite(options.scale) && options.scale > 0) {
+      args.push('--scale', String(options.scale));
+    }
+
     const videoStreamer = new VideoStreamer();
     let pipeServer = null;
 

@@ -40,6 +40,7 @@ const {
   isStarting: isStartingIris,
   isStopping: isStoppingIris,
   wsUrl: irisWsUrl,
+  refreshCameras: refreshIrisCameras,
   start: startIris,
   stop: stopIris,
 } = useIris({ autoFetch: true, autoCheck: false });
@@ -55,6 +56,9 @@ const currentTheme = ref<'dark' | 'light'>('light');
 const irisRunMode = ref<'capture' | 'mocap' | null>(null);
 const isRecording = ref(false);
 const isRecordingBusy = ref(false);
+const isScaleRecording = ref(false);
+const isScaleBusy = ref(false);
+const isScalingExtrinsics = ref(false);
 
 // Apply theme to document root for global CSS variable targeting
 watchEffect(() => {
@@ -107,7 +111,16 @@ const canStopIris = computed(() =>
 const canToggleRecording = computed(() =>
   !!currentProject.value?.path
   && !isRecordingBusy.value
+  && !isScaleBusy.value
+  && !isScaleRecording.value
   && (isRecording.value || isIrisRunning.value)
+);
+const canToggleScaleRecording = computed(() =>
+  !!currentProject.value?.path
+  && !isScaleBusy.value
+  && !isRecordingBusy.value
+  && !isRecording.value
+  && (isScaleRecording.value || isIrisRunning.value)
 );
 
 function updateResolution(value: string) {
@@ -364,6 +377,24 @@ watch(() => currentProject.value?.path ?? null, async (nextPath, previousPath) =
   }
 });
 
+watch(() => currentProject.value?.path ?? null, async (nextPath, previousPath) => {
+  if (!previousPath || nextPath === previousPath || !isScaleRecording.value) return;
+  if (!window.ipc?.stopIrisScaleExtrinsicsRecord) return;
+
+  isScaleBusy.value = true;
+  isScalingExtrinsics.value = true;
+  try {
+    const result = await window.ipc.stopIrisScaleExtrinsicsRecord();
+    if (result?.ok) {
+      isScaleRecording.value = false;
+      await refreshIrisCameras();
+    }
+  } finally {
+    isScaleBusy.value = false;
+    isScalingExtrinsics.value = false;
+  }
+});
+
 async function handleStartCaptureIris() {
   await startIrisForMode('capture');
 }
@@ -380,7 +411,7 @@ async function handleStopIris() {
 }
 
 async function handleToggleRecording() {
-  if (!currentProject.value?.path || isRecordingBusy.value) return;
+  if (!currentProject.value?.path || isRecordingBusy.value || isScaleBusy.value || isScaleRecording.value) return;
   if (!window.ipc?.startIrisRecord || !window.ipc?.stopIrisRecord) return;
 
   isRecordingBusy.value = true;
@@ -405,6 +436,40 @@ async function handleToggleRecording() {
     }
   } finally {
     isRecordingBusy.value = false;
+  }
+}
+
+async function handleToggleScaleRecording() {
+  if (!currentProject.value?.path || isScaleBusy.value || isRecordingBusy.value || isRecording.value) return;
+  if (!window.ipc?.startIrisScaleExtrinsicsRecord || !window.ipc?.stopIrisScaleExtrinsicsRecord) return;
+
+  isScaleBusy.value = true;
+
+  try {
+    if (isScaleRecording.value) {
+      isScalingExtrinsics.value = true;
+
+      const result = await window.ipc.stopIrisScaleExtrinsicsRecord();
+      if (result?.ok) {
+        isScaleRecording.value = false;
+        await refreshIrisCameras();
+      }
+      return;
+    }
+
+    const result = await window.ipc.startIrisScaleExtrinsicsRecord({
+      projectPath: currentProject.value.path,
+      fps: selectedFps.value,
+    });
+
+    if (result?.ok) {
+      isScaleRecording.value = true;
+    }
+  } finally {
+    isScaleBusy.value = false;
+    if (!isScaleRecording.value) {
+      isScalingExtrinsics.value = false;
+    }
   }
 }
 </script>
@@ -447,19 +512,24 @@ async function handleToggleRecording() {
               :rotation="selectedRotation"
               :show-start-button="true"
               :show-stop-button="true"
+              :show-scale-button="true"
               :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
               :is-iris-running="isCaptureIrisRunning"
+              :is-scale-recording="isScaleRecording"
+              :is-scaling-extrinsics="isScalingExtrinsics"
               :is-recording="isRecording"
               :start-disabled="!canStartCaptureIris"
               :stop-disabled="!canStopIris"
+              :scale-disabled="!canToggleScaleRecording"
               :record-disabled="!canToggleRecording"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
               @start-iris="handleStartCaptureIris"
               @stop-iris="handleStopIris"
+              @toggle-scale-recording="handleToggleScaleRecording"
               @toggle-recording="handleToggleRecording"
             />
           </div>
@@ -476,19 +546,24 @@ async function handleToggleRecording() {
               :rotation="selectedRotation"
               :show-start-button="true"
               :show-stop-button="true"
+              :show-scale-button="true"
               :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
               :is-iris-running="isMocapIrisRunning"
+              :is-scale-recording="isScaleRecording"
+              :is-scaling-extrinsics="isScalingExtrinsics"
               :is-recording="isRecording"
               :start-disabled="!canStartMocapIris"
               :stop-disabled="!canStopIris"
+              :scale-disabled="!canToggleScaleRecording"
               :record-disabled="!canToggleRecording"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
               @start-iris="handleStartIris"
               @stop-iris="handleStopIris"
+              @toggle-scale-recording="handleToggleScaleRecording"
               @toggle-recording="handleToggleRecording"
             />
           </div>

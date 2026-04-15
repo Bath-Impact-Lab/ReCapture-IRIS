@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('ipc', {
   stopIRIS: (Id) => ipcRenderer.invoke('stop-iris', Id),
   startIrisRecord: (options) => ipcRenderer.invoke('start-iris-record', options),
   stopIrisRecord: () => ipcRenderer.invoke('stop-iris-record'),
+  startIrisScaleExtrinsicsRecord: (options) => ipcRenderer.invoke('start-iris-scale-extrinsics-record', options),
+  stopIrisScaleExtrinsicsRecord: () => ipcRenderer.invoke('stop-iris-scale-extrinsics-record'),
   onIrisData: (callback) => {
     ipcRenderer.on('iris-data', (event, data,) => {
       callback(data)
