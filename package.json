@@ -1,7 +1,7 @@
 {
-  "name": "iris-starter-project",
-  "version": "0.1.4",
-  "description": "Electron starter app for IRIS with Three.js and camera selection UI",
+  "name": "ReCapture",
+  "version": "0.1.5",
+  "description": "ReCapture IRIS App",
   "main": "electron/main.js",
   "author": "",
   "license": "MIT",
