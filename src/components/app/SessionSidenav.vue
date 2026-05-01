@@ -94,6 +94,14 @@
           No sessions yet.
         </div>
       </div>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <button
+          @click="openRecordings"
+          class="open-recordings"
+        >  
+          Open Recordings
+        </button>
+      </div>
     </div>
 
     <div class="session-sidenav-fixed-bottom">
@@ -209,6 +217,7 @@ interface Props {
   width?: number;
   modeSwitchDisabled?: boolean;
   selectedCameraIds?: string[];
+  currentProjectPath: string | null | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -368,6 +377,10 @@ function recordSessionFromMenu() {
     sessionId: sessionMenu.value.sessionId,
   });
   closeSessionMenu();
+}
+
+function openRecordings() {
+  if(props.currentProjectPath) window.ipc?.openRecordings(props.currentProjectPath)
 }
 
 function recordMotionFromMenu() {
@@ -875,9 +888,24 @@ function stopResize() {
   .session-sidenav {
     display: none;
   }
-
+  
   .session-sidenav-resizer {
     display: none;
   }
+}
+
+.open-recordings {
+  background: var(--bg-elev);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--sidenav-link, #4b5563);
+  border-radius: 8px;
+  border: 1px solid rgba(107, 230, 117, 0.25);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.open-recordings:hover {
+  background-color: var(--bg);
 }
 </style>
