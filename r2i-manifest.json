@@ -1,0 +1,17 @@
+{
+  "name": "ReCapture",
+  "shortDescription": "AI-powered physiotherapy assessment tool.",
+  "description": "ReCapture is a desktop application that delivers real-time gait analysis using consumer grade webcams and PC.",
+  "website": "https://iris.cs.bath.ac.uk/",
+  "category": "Health",
+  "tags": ["AI", "Computer Vision", "Rehabilitation", "Physiotherapy"],
+  "research": [
+    {
+      "title": "Automated Physiotherapy Assessment Using Pose Estimation",
+      "url": "https://doi.org/10.xxxx/example"
+    }
+  ],
+  "team": ["Samuel Legg", "Mark Townsend", "Kavi Naidoo"],
+  "logo": "https://raw.githubusercontent.com/Bath-Impact-Lab/IRIS/main/docs/logo.png",
+  "status": "active"
+}
