@@ -609,8 +609,9 @@ function stopResize() {
 
 .session-sidenav-link {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: start;
+  gap: 5px;
   width: 100%;
   padding: 8px 12px;
   border: 0;
