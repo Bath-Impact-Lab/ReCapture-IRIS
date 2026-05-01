@@ -179,11 +179,12 @@ function buildConfigFromOptions(opts = {}) {
       pose_source: "pose0",
       camera_group: "capture_rig",
       da3_startup_calibration: {
-        engine: `${modelDir}/DA3-LARGE-1.1.engine`,
+        engine: `${modelDir}/da3_base.trt`,
         output_dir: outputDir,
         frame_source: "frame_batch",
         viewer_align: true,
-        save_ply: "scene.ply"
+        save_ply: "scene.ply",
+        model_type: "base"
       },
       compute_reprojection: true,
       store_reprojection_error: true,

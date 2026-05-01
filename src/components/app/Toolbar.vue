@@ -139,6 +139,7 @@ interface Props {
   startDisabled?: boolean;
   stopDisabled?: boolean;
   recordDisabled?: boolean;
+  currentScreen?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -155,6 +156,7 @@ const props = withDefaults(defineProps<Props>(), {
   startDisabled: false,
   stopDisabled: false,
   recordDisabled: false,
+  currentScreen: "",
 });
 
 const emit = defineEmits<{
@@ -172,6 +174,8 @@ const selectedRotation = ref(props.rotation);
 const startLabel = computed(() => {
   if (props.isStartingIris) return 'Starting IRIS...';
   if (props.isIrisRunning) return 'IRIS Running';
+  if (props.currentScreen === "mocap") return 'Start IRIS (Mocap)'
+  if (props.currentScreen === "capture") return 'Start IRIS (Capture)'
   return 'Start IRIS';
 });
 const stopLabel = computed(() => {
