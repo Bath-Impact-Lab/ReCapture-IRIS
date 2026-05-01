@@ -410,7 +410,7 @@ ipcMain.handle('project-save', async (event, filePath, projectData) => {
 });
  
 
-ipcMain.handle('open-recordings', (event, recordingPath) => {
-  const recPath = path.join(recordingPath, "..", "recordings")
+ipcMain.handle('open-recordings', (event, recordingPath, name) => {
+  const recPath = path.join(recordingPath, "..", "recordings", name)
   shell.openPath(recPath)
 })
