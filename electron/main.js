@@ -516,7 +516,7 @@ ipcMain.handle('project-prune-recents', async (_event, entries) => {
 });
  
 
-ipcMain.handle('open-recordings', (event, recordingPath) => {
-  const recPath = path.join(recordingPath, "..", "recordings")
+ipcMain.handle('open-recordings', (event, recordingPath, name) => {
+  const recPath = path.join(recordingPath, "..", "recordings", name)
   shell.openPath(recPath)
 })

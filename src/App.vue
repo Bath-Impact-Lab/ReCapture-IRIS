@@ -112,6 +112,13 @@ const isCaptureIrisRunning = computed(() =>
 const isMocapIrisRunning = computed(() =>
   isIrisRunning.value && irisRunMode.value === 'mocap'
 );
+const canStartIris = computed(() =>
+  availableIrisCameras.value.length > 0
+  && !isStartingIris.value
+  && !isStoppingIris.value
+  && !isCaptureIrisRunning.value
+  && !isMocapIrisRunning.value
+);
 const canStartCaptureIris = computed(() =>
   availableIrisCameras.value.length > 0
   && !isStartingIris.value
@@ -870,6 +877,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :modeSwitchDisabled="isIrisRunning"
         :selectedCameraIds="selectedCameraIds"
         :current-project-path="currentProject?.path"
+        :current-name="currentProject?.name"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"
@@ -897,7 +905,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :is-stopping-iris="isStoppingIris"
               :is-iris-running="isIrisRunning"
               :is-recording="isRecording"
-              :start-disabled="!canStartCaptureIris"
+              :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
               :record-disabled="!canToggleRecording"
               :current-screen="activeView"
@@ -929,7 +937,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :is-stopping-iris="isStoppingIris"
               :is-iris-running="isIrisRunning"
               :is-recording="isRecording"
-              :start-disabled="!canStartMocapIris"
+              :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
               :record-disabled="!canToggleRecording"
               :current-screen="activeView"

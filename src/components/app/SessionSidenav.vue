@@ -217,7 +217,8 @@ interface Props {
   width?: number;
   modeSwitchDisabled?: boolean;
   selectedCameraIds?: string[];
-  currentProjectPath: string | null | undefined
+  currentProjectPath: string | null | undefined;
+  currentName: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -380,7 +381,7 @@ function recordSessionFromMenu() {
 }
 
 function openRecordings() {
-  if(props.currentProjectPath) window.ipc?.openRecordings(props.currentProjectPath)
+  if(props.currentProjectPath && props.currentName) window.ipc?.openRecordings(props.currentProjectPath, props.currentName)
 }
 
 function recordMotionFromMenu() {
