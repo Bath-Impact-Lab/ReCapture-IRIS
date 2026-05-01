@@ -53,5 +53,6 @@ interface Window {
     presetStoreLoad: () => Promise<{ ok: boolean; error?: string; store?: any }>;
     presetStoreSave: (store: any) => Promise<{ ok: boolean; error?: string; store?: any }>;
 
+    openRecordings: (path: string) => void;
   }
 } 

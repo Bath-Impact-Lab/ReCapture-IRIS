@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('ipc', {
   projectSave: (filePath, projectData) => ipcRenderer.invoke('project-save', filePath, projectData),
   presetStoreLoad: () => ipcRenderer.invoke('preset-store-load'),
   presetStoreSave: (store) => ipcRenderer.invoke('preset-store-save', store),
- 
+  openRecordings: (path) => ipcRenderer.invoke('open-recordings', path)
 })
 
 contextBridge.exposeInMainWorld('electronAPI', {
