@@ -278,8 +278,7 @@ const emit = defineEmits<{
   settings: [boolean]
   licenseKey: [string]
   setTheme: ['dark' | 'light']
-  'save-presets': [ProjectPresetStore]
-  'set-project-preset': [string | null]
+  'save-presets': [{ store: ProjectPresetStore; projectPresetId: string | null }]
 }>()
 
 function createId(prefix: string) {
@@ -477,7 +476,6 @@ function createPresetFromDialog() {
 
 function setCurrentPreset(presetId: string) {
   projectPresetDraft.value = presetId;
-  emit('set-project-preset', presetId);
   openPresetMenuId.value = null;
 }
 
@@ -499,7 +497,6 @@ function deletePreset(presetId: string) {
 
   if (projectPresetDraft.value === presetId) {
     projectPresetDraft.value = presetDraft.value.defaultPresetId ?? nextPresets[0]?.id ?? null;
-    emit('set-project-preset', projectPresetDraft.value);
   }
 
   if (selectedPresetId.value === presetId) {
@@ -574,7 +571,6 @@ function toggleTemplateMenu(templateId: string) {
 function handleProjectPresetChange(event: Event) {
   const value = (event.target as HTMLSelectElement).value || null;
   projectPresetDraft.value = value;
-  emit('set-project-preset', value);
 }
 
 function normalizePresetDraft(store: ProjectPresetStore): ProjectPresetStore {
@@ -592,12 +588,16 @@ function normalizePresetDraft(store: ProjectPresetStore): ProjectPresetStore {
 }
 
 function handleSavePresetChanges() {
+  if (isRenamingSelected.value) {
+    commitSelectedRename();
+  }
+
   const normalized = normalizePresetDraft(clonePresetStore(presetDraft.value));
   presetDraft.value = clonePresetStore(normalized);
-  emit('save-presets', normalized);
-  if (props.hasCurrentProject) {
-    emit('set-project-preset', projectPresetDraft.value);
-  }
+  emit('save-presets', {
+    store: normalized,
+    projectPresetId: projectPresetDraft.value,
+  });
 }
 
 async function handleLicenseSubmit() {

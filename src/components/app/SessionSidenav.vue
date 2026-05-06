@@ -57,20 +57,19 @@
             v-for="session in participant.sessions"
             :key="session.id"
             class="session-sidenav-link session-trial-link"
-            :class="{ 'session-trial-link--complete': session.completed }"
+            :class="{ 'session-trial-link--complete': hasSessionRecording(session) }"
             type="button"
-            :title="`Right click to record ${session.name}`"
-            @click="emit('toggle-session-complete', { participantId: participant.id, sessionId: session.id })"
+            :title="`Right click to manage ${session.name}`"
             @contextmenu.prevent="openSessionMenu($event, participant.id, session.id)"
           >
             <div class="link-left">
-              <span class="indicator" :class="{ 'indicator-complete': session.completed }"></span>
+              <span class="indicator" :class="{ 'indicator-complete': hasSessionRecording(session) }"></span>
               <div class="session-meta">
                 <span class="session-name">{{ session.name }}</span>
                 <span class="session-date">{{ formatSessionDate(session.date) }}</span>
               </div>
               <span class="session-status">
-                {{ session.completed ? 'Complete' : 'Pending' }}
+                {{ hasSessionRecording(session) ? 'Complete' : 'Pending' }}
               </span>
             </div>
           </button>
@@ -131,30 +130,72 @@
       <button class="template-context-action" type="button" @click="recordSessionFromMenu">
         Record Trial
       </button>
+      <button
+        class="template-context-action"
+        :disabled="!canRecordMotion"
+        type="button"
+        @click="recordMotionFromMenu"
+      >
+        Record Motion
+      </button>
+      <button
+        class="template-context-action"
+        :disabled="!canRunOpenSim"
+        type="button"
+        @click="runOpenSimScaleFromMenu"
+      >
+        Run OpenSim Scale
+      </button>
+      <button
+        class="template-context-action"
+        :disabled="!canRunOpenSim"
+        type="button"
+        @click="runOpenSimIkFromMenu"
+      >
+        Run OpenSim IK
+      </button>
+      <button class="template-context-action" type="button" @click="linkRecordingsFromMenu">
+        Link Recordings
+      </button>
     </div>
+
+    <div
+      class="session-sidenav-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      :aria-valuenow="Math.round(props.width)"
+      @pointerdown.prevent="beginResize"
+    ></div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useIris } from '@/lib/useIris';
-import type { ProjectParticipant } from '@/lib/useProject';
+import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
 
 interface Props {
   activeView: 'capture' | 'analysis' | 'mocap';
   participants?: ProjectParticipant[];
+  width?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   participants: () => [],
+  width: 240,
 });
 
 const emit = defineEmits<{
   'open-capture': [];
   'open-analysis': [];
   'open-mocap': [];
-  'toggle-session-complete': [{ participantId: string; sessionId: string }];
   'record-session': [{ participantId: string; sessionId: string }];
+  'record-motion': [{ participantId: string; sessionId: string }];
+  'run-session-opensim-scale': [{ participantId: string; sessionId: string }];
+  'run-session-opensim-ik': [{ participantId: string; sessionId: string }];
+  'link-recordings': [{ participantId: string; sessionId: string }];
+  'resize-sidebar': [width: number];
 }>();
 
 // State for the main cameras dropdown
@@ -180,6 +221,15 @@ const hasIrisCameras = computed(() => irisCameras.value.length > 0);
 const irisCameraErrorMessage = computed(() =>
   irisCamerasError.value ? 'Unable to load IRIS cameras.' : ''
 );
+const isResizing = ref(false);
+const selectedSession = computed(() => {
+  if (!sessionMenu.value.visible) return null;
+
+  const participant = participants.value.find((entry) => entry.id === sessionMenu.value.participantId);
+  return participant?.sessions.find((entry) => entry.id === sessionMenu.value.sessionId) ?? null;
+});
+const canRunOpenSim = computed(() => hasSessionRecording(selectedSession.value));
+const canRecordMotion = computed(() => hasSessionRecording(selectedSession.value));
 
 onMounted(() => {
   window.addEventListener('click', closeSessionMenu);
@@ -188,6 +238,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  stopResize();
   window.removeEventListener('click', closeSessionMenu);
   window.removeEventListener('blur', closeSessionMenu);
   window.removeEventListener('scroll', closeSessionMenu, true);
@@ -204,6 +255,10 @@ function formatSessionDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function hasSessionRecording(session: ProjectSession | null | undefined) {
+  return !!session && typeof session.recordingPath === 'string' && session.recordingPath.trim().length > 0;
 }
 
 function openSessionMenu(event: MouseEvent, participantId: string, sessionId: string) {
@@ -234,6 +289,69 @@ function recordSessionFromMenu() {
   });
   closeSessionMenu();
 }
+
+function recordMotionFromMenu() {
+  if (!canRecordMotion.value) return;
+
+  emit('record-motion', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function runOpenSimScaleFromMenu() {
+  if (!canRunOpenSim.value) return;
+
+  emit('run-session-opensim-scale', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function runOpenSimIkFromMenu() {
+  if (!canRunOpenSim.value) return;
+
+  emit('run-session-opensim-ik', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function linkRecordingsFromMenu() {
+  emit('link-recordings', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function beginResize() {
+  if (window.innerWidth <= 768) return;
+
+  isResizing.value = true;
+  document.body.classList.add('session-sidenav-resizing');
+  window.addEventListener('pointermove', handleResizePointerMove);
+  window.addEventListener('pointerup', stopResize);
+  window.addEventListener('pointercancel', stopResize);
+}
+
+function handleResizePointerMove(event: PointerEvent) {
+  if (!isResizing.value) return;
+  emit('resize-sidebar', event.clientX);
+}
+
+function stopResize() {
+  if (!isResizing.value) return;
+
+  isResizing.value = false;
+  document.body.classList.remove('session-sidenav-resizing');
+  window.removeEventListener('pointermove', handleResizePointerMove);
+  window.removeEventListener('pointerup', stopResize);
+  window.removeEventListener('pointercancel', stopResize);
+}
 </script>
 
 <style scoped>
@@ -250,6 +368,41 @@ function recordSessionFromMenu() {
   z-index: 10;
   transition: background 0.3s ease, border-color 0.3s ease;
   overflow: hidden; /* Lock main component from scrolling */
+}
+
+.session-sidenav-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 30;
+}
+
+.session-sidenav-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.session-sidenav-resizer:hover::before {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 55%, transparent);
+}
+
+:global(body.session-sidenav-resizing) {
+  cursor: col-resize;
+  user-select: none;
+}
+
+:global(body.session-sidenav-resizing *) {
+  cursor: col-resize !important;
 }
 
 /* Scrollable Container for Lists */
@@ -517,6 +670,15 @@ function recordSessionFromMenu() {
   background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
 }
 
+.template-context-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.template-context-action:disabled:hover {
+  background: transparent;
+}
+
 .session-sidenav-divider {
   width: calc(100% - 24px);
   height: 1px;
@@ -575,6 +737,10 @@ function recordSessionFromMenu() {
 
 @media (max-width: 768px) {
   .session-sidenav {
+    display: none;
+  }
+
+  .session-sidenav-resizer {
     display: none;
   }
 }

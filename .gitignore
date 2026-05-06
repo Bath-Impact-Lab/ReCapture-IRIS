@@ -27,9 +27,7 @@ build/
 *.rej
 *.class
 *.war
-*.jar
-*.exe
-*.dll
+*.jar 
 *.so
 *.obj
 !public/assets/*.obj

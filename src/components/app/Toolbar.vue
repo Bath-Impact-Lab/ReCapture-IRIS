@@ -107,28 +107,77 @@
         {{ stopLabel }}
       </button>
 
-      <button
+      <div
         v-if="showRecordButton"
-        class="toolbar-action toolbar-action-record"
-        :class="{ 'toolbar-action-recording': isRecording }"
-        type="button"
-        :disabled="recordDisabled"
-        @click="emit('toggle-recording')"
+        ref="recordActionRef"
+        class="toolbar-record-split"
+        :class="{ 'toolbar-record-split-open': isRecordMenuOpen }"
       >
-        {{ recordLabel }}
-      </button>
+        <button
+          class="toolbar-action toolbar-action-record toolbar-action-record-main"
+          :class="{ 'toolbar-action-recording': isRecording }"
+          type="button"
+          :disabled="recordDisabled"
+          @click="emit('toggle-recording', { mode: selectedRecordMode })"
+        >
+          {{ recordLabel }}
+        </button>
+        <button
+          class="toolbar-action toolbar-action-record toolbar-action-record-toggle"
+          :class="{ 'toolbar-action-recording': isRecording }"
+          type="button"
+          :disabled="recordMenuDisabled"
+          :aria-expanded="isRecordMenuOpen"
+          aria-haspopup="menu"
+          aria-label="Select recording mode"
+          @click="toggleRecordMenu"
+        >
+          <svg class="toolbar-record-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div v-if="isRecordMenuOpen" class="toolbar-record-menu" role="menu">
+          <button
+            class="toolbar-record-menu-item"
+            :class="{ 'toolbar-record-menu-item-active': selectedRecordMode === 'plain' }"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="selectedRecordMode === 'plain'"
+            @click="selectRecordMode('plain')"
+          >
+            Plain Record
+          </button>
+          <button
+            class="toolbar-record-menu-item"
+            :class="{ 'toolbar-record-menu-item-active': selectedRecordMode === 'augment' }"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="selectedRecordMode === 'augment'"
+            @click="selectRecordMode('augment')"
+          >
+            Record Then Augment
+          </button>
+        </div>
+      </div>
     </template>
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
+type RecordingMode = 'plain' | 'augment';
+interface RecordingTogglePayload {
+  mode: RecordingMode;
+}
 
 interface Props {
   resolution?: string;
   fps?: number;
   rotation?: number;
+  recordMode?: RecordingMode;
   showStartButton?: boolean;
   showStopButton?: boolean;
   showRecordButton?: boolean;
@@ -145,6 +194,7 @@ const props = withDefaults(defineProps<Props>(), {
   resolution: '1920x1080',
   fps: 30,
   rotation: 0,
+  recordMode: 'plain',
   showStartButton: false,
   showStopButton: false,
   showRecordButton: false,
@@ -161,14 +211,18 @@ const emit = defineEmits<{
   'update:resolution': [value: string];
   'update:fps': [value: number];
   'update:rotation': [value: number];
+  'update:record-mode': [value: RecordingMode];
   'start-iris': [];
   'stop-iris': [];
-  'toggle-recording': [];
+  'toggle-recording': [payload: RecordingTogglePayload];
 }>();
 
 const selectedResolution = ref(props.resolution);
 const selectedFps = ref(props.fps);
 const selectedRotation = ref(props.rotation);
+const selectedRecordMode = ref<RecordingMode>(props.recordMode);
+const isRecordMenuOpen = ref(false);
+const recordActionRef = ref<HTMLElement | null>(null);
 const startLabel = computed(() => {
   if (props.isStartingIris) return 'Starting IRIS...';
   if (props.isIrisRunning) return 'IRIS Running';
@@ -178,12 +232,55 @@ const stopLabel = computed(() => {
   if (props.isStoppingIris) return 'Stopping IRIS...';
   return 'Stop IRIS';
 });
-const recordLabel = computed(() => props.isRecording ? 'Stop Recording' : 'Record');
+const recordLabel = computed(() => {
+  if (props.isRecording) return 'Stop Recording';
+  return selectedRecordMode.value === 'augment' ? 'Record + Augment' : 'Record';
+});
+const recordMenuDisabled = computed(() => props.recordDisabled || props.isRecording);
+
+onMounted(() => {
+  window.addEventListener('click', handleWindowClick);
+  window.addEventListener('blur', closeRecordMenu);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', handleWindowClick);
+  window.removeEventListener('blur', closeRecordMenu);
+});
 
 // Keep local state in sync if parent updates props
 watch(() => props.resolution, (newVal) => { selectedResolution.value = newVal; });
 watch(() => props.fps, (newVal) => { selectedFps.value = newVal; });
 watch(() => props.rotation, (newVal) => { selectedRotation.value = newVal; });
+watch(() => props.recordMode, (newVal) => {
+  selectedRecordMode.value = newVal;
+});
+watch(() => props.isRecording, (isRecording) => {
+  if (isRecording) {
+    closeRecordMenu();
+  }
+});
+
+function toggleRecordMenu() {
+  if (recordMenuDisabled.value) return;
+  isRecordMenuOpen.value = !isRecordMenuOpen.value;
+}
+
+function closeRecordMenu() {
+  isRecordMenuOpen.value = false;
+}
+
+function selectRecordMode(mode: RecordingMode) {
+  selectedRecordMode.value = mode;
+  emit('update:record-mode', mode);
+  closeRecordMenu();
+}
+
+function handleWindowClick(event: MouseEvent) {
+  if (!isRecordMenuOpen.value) return;
+  if (recordActionRef.value?.contains(event.target as Node | null)) return;
+  closeRecordMenu();
+}
 </script>
 
 <style scoped>
@@ -365,6 +462,73 @@ watch(() => props.rotation, (newVal) => { selectedRotation.value = newVal; });
   background: linear-gradient(135deg, rgba(225, 29, 72, 0.32), rgba(251, 113, 133, 0.2));
 }
 
+.toolbar-record-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.toolbar-action-record-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.toolbar-action-record-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 8px 10px;
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.toolbar-record-chevron {
+  transition: transform 0.2s ease;
+}
+
+.toolbar-record-split-open .toolbar-record-chevron {
+  transform: rotate(180deg);
+}
+
+.toolbar-record-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 40;
+}
+
+.toolbar-record-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toolbar-record-menu-item:hover {
+  background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
+}
+
+.toolbar-record-menu-item-active {
+  background: rgba(244, 63, 94, 0.16);
+}
+
 [data-theme="light"] .toolbar-action {
   color: #1F4E79;
   background: linear-gradient(135deg, rgba(46, 134, 193, 0.16), rgba(56, 189, 248, 0.14));
@@ -387,6 +551,16 @@ watch(() => props.rotation, (newVal) => { selectedRotation.value = newVal; });
   border-color: rgba(190, 24, 93, 0.34);
 }
 
+[data-theme="light"] .toolbar-record-menu {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(31, 78, 121, 0.12);
+  color: #1F4E79;
+}
+
+[data-theme="light"] .toolbar-record-menu-item-active {
+  background: rgba(190, 24, 93, 0.1);
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .capture-toolbar {
@@ -401,6 +575,12 @@ watch(() => props.rotation, (newVal) => { selectedRotation.value = newVal; });
   }
   .toolbar-action {
     width: 100%;
+  }
+  .toolbar-record-split {
+    width: 100%;
+  }
+  .toolbar-action-record-main {
+    flex: 1;
   }
 }
 </style>
