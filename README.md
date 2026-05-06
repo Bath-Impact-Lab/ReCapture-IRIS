@@ -20,7 +20,6 @@ npm run dev
 npm run build
 ```
 
-After running the application, you will need to enter a FREE license key for IRIS available from [iris.cs.bath.ac.uk](https://iris.cs.bath.ac.uk/).
 Instruction for app usage can be found in the help menu of the ReCapture application.
 
 ## 🆘 Resources & Support 

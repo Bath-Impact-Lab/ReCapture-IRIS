@@ -17,7 +17,6 @@ interface IrisData {
 
 interface Window {
   electronAPI?: {
-    openExternal: (url: string) => Promise<{ ok: boolean, error?: string }>;
     minimizeWindow: () => Promise<void>;
     toggleMaximizeWindow: () => Promise<{ isMaximized: boolean }>;
     closeWindow: () => Promise<void>;

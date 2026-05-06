@@ -30,8 +30,6 @@ export default defineConfig({
             return 'vendor-three-core';
           }
           if (id.includes('node_modules/three')) return 'vendor-three-extras';
-          if (id.includes('node_modules/@supabase/realtime-js')) return 'vendor-supabase-realtime';
-          if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
           if (id.includes('node_modules/vue') || id.includes('node_modules/@vue')) return 'vendor-vue';
         }
       },

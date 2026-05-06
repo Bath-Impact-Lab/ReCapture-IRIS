@@ -212,39 +212,6 @@
             </div>
           </section>
 
-          <section class="settings-group">
-            <label>License Management</label>
-            <div class="license-input-wrapper">
-              <input
-                v-model="licenseKeyInput"
-                type="text"
-                placeholder="Enter License Key"
-                class="license-input"
-                :disabled="isChecking"
-                @keyup.enter="handleLicenseSubmit"
-              />
-              <button class="btn-primary" @click="handleLicenseSubmit" :disabled="isChecking || !licenseKeyInput">
-                <span v-if="isChecking">Checking...</span>
-                <span v-else>{{ isValidLicense ? 'Update' : 'Activate' }}</span>
-              </button>
-            </div>
-            <Transition name="fade">
-              <div v-if="licenseError" class="license-msg error">{{ licenseError }}</div>
-              <div v-else-if="isValidLicense" class="license-msg success">License active and valid</div>
-            </Transition>
-          </section>
-
-          <div v-if="isValidLicense" class="settings-actions">
-            <button class="btn-secondary danger-outline" @click="licenseLogout">Deactivate License</button>
-          </div>
-
-          <div v-if="!isPaidLicense" class="settings-footer">
-            <div class="divider"><span>Support Us</span></div>
-            <button class="btn-buy" @click="buyLicense">
-              Get a License
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-            </button>
-          </div>
         </div>
 
         <div class="modal-footer">
@@ -257,7 +224,6 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useLicense } from './../lib/useLicense';
 import type { ProjectPresetStore } from '@/lib/useProjectPresets';
 
 interface Props {
@@ -276,7 +242,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   settings: [boolean]
-  licenseKey: [string]
   setTheme: ['dark' | 'light']
   'save-presets': [{ store: ProjectPresetStore; projectPresetId: string | null }]
 }>()
@@ -312,26 +277,9 @@ const openTemplateMenuId = ref<string | null>(null);
 const isRenamingSelected = ref(false);
 const renameDraft = ref('');
 
-const licenseKeyInput = ref('');
-const {
-  licenseKey: storedLicenseKey,
-  isValid: isValidLicense,
-  isChecking,
-  error: licenseError,
-  planType,
-  validateLicense,
-  logout: licenseLogout
-} = useLicense();
-
 const selectedPreset = computed(() =>
   presetDraft.value.presets.find((preset) => preset.id === selectedPresetId.value) ?? null
 );
-
-const isPaidLicense = computed(() => {
-  if (!isValidLicense.value) return false;
-  const plan = planType.value?.toLowerCase();
-  return plan === 'creator' || plan === 'studio';
-});
 
 function isDefaultPreset(presetId: string) {
   return presetDraft.value.defaultPresetId === presetId;
@@ -392,10 +340,6 @@ watch(() => props.currentProjectPresetId, (value) => {
     selectedPresetId.value = value;
   }
 });
-
-watch(storedLicenseKey, (value) => {
-  licenseKeyInput.value = value ?? '';
-}, { immediate: true });
 
 function closeMenus() {
   openPresetMenuId.value = null;
@@ -598,22 +542,6 @@ function handleSavePresetChanges() {
     store: normalized,
     projectPresetId: projectPresetDraft.value,
   });
-}
-
-async function handleLicenseSubmit() {
-  await validateLicense(licenseKeyInput.value);
-  emit('licenseKey', licenseKeyInput.value)
-}
-
-async function buyLicense() {
-  const url = import.meta.env.VITE_LICENSE_URL || 'https://embodi.ecolizard.com/#pricing';
-  if (!(window as any).electronAPI?.openExternal) return;
-
-  try {
-    await (window as any).electronAPI.openExternal(url);
-  } catch {
-    // Ignore open failures; UI already communicates action intent.
-  }
 }
 </script>
 
@@ -1013,8 +941,7 @@ async function buyLicense() {
 }
 
 .settings-input,
-.settings-select,
-.license-input {
+.settings-select {
   width: 100%;
   border: 1px solid var(--input-border);
   border-radius: 10px;
@@ -1140,89 +1067,6 @@ async function buyLicense() {
   color: var(--muted);
 }
 
-.license-input-wrapper {
-  display: flex;
-  gap: 10px;
-}
-
-.license-msg {
-  font-size: 13px;
-}
-
-.license-msg.error {
-  color: #ff9a5c;
-}
-
-.license-msg.success {
-  color: var(--accent);
-}
-
-.settings-actions {
-  display: flex;
-}
-
-.danger-outline {
-  color: #ff8b8b;
-  border-color: rgba(255, 59, 48, 0.35);
-}
-
-.settings-footer {
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  color: var(--divider-color);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid var(--divider-line);
-}
-
-.divider::before {
-  margin-right: 12px;
-}
-
-.divider::after {
-  margin-left: 12px;
-}
-
-.btn-buy {
-  background: rgba(107, 230, 117, 0.1);
-  border: 1px solid rgba(107, 230, 117, 0.24);
-  color: #6be675;
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.btn-buy:hover {
-  background: rgba(107, 230, 117, 0.15);
-  border-color: #6be675;
-}
-
-:global([data-theme="light"]) .btn-buy:hover {
-  background: rgba(46, 134, 193, 0.15);
-  border-color: #2e86c1;
-}
-
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -1259,10 +1103,6 @@ async function buyLicense() {
 
   .preset-layout {
     grid-template-columns: 1fr;
-  }
-
-  .license-input-wrapper {
-    flex-direction: column;
   }
 
   .modal-footer {
