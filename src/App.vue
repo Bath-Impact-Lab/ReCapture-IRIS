@@ -145,6 +145,37 @@ function updateRotation(value: number) {
   currentProject.value.workspace.rotation = value;
 }
 
+async function handleToggleCamera(cameraId: string) {
+  if (!currentProject.value) return;
+
+  const allCameraIds = irisCameras.value
+    .filter((camera) => camera.success)
+    .map((camera) => String(camera.id));
+
+  if (!allCameraIds.includes(cameraId)) return;
+
+  const selectedIds = selectedCameraIds.value.length === 0
+    ? new Set(allCameraIds)
+    : new Set(selectedCameraIds.value.filter((id) => allCameraIds.includes(id)));
+
+  if (selectedIds.has(cameraId)) {
+    if (selectedIds.size <= 1) return;
+    selectedIds.delete(cameraId);
+  } else {
+    selectedIds.add(cameraId);
+  }
+
+  const nextSelectedCameraIds = selectedIds.size === allCameraIds.length
+    ? []
+    : allCameraIds.filter((id) => selectedIds.has(id));
+
+  await updateCurrentProject({
+    workspace: {
+      selectedCameraIds: nextSelectedCameraIds,
+    },
+  }, { save: true });
+}
+
 function parseResolution(value: string) {
   const match = value.match(/^(\d+)x(\d+)$/);
   if (!match) {
@@ -834,9 +865,11 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :participants="currentProject.participants"
         :width="sessionSidenavWidth"
         :modeSwitchDisabled="isIrisRunning"
+        :selectedCameraIds="selectedCameraIds"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"
+        @toggle-camera="handleToggleCamera"
         @record-session="handleRecordSession($event.participantId, $event.sessionId)"
         @record-motion="handleRecordMotion($event.participantId, $event.sessionId)"
         @run-session-opensim-scale="handleRunSessionOpenSimScale($event.participantId, $event.sessionId)"

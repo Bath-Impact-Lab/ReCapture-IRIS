@@ -29,22 +29,34 @@
             No IRIS cameras detected.
           </div>
           <template v-else>
-            <div
+            <button
               v-for="camera in irisCameras"
               :key="`camera-${camera.id}`"
-              class="session-sidenav-link session-sidenav-link--static"
+              class="session-sidenav-link camera-toggle-link"
+              :class="{
+                'camera-toggle-link--unused': camera.success && !isCameraSelected(camera.id),
+                'camera-toggle-link--disabled': !camera.success || isOnlySelectedCamera(camera),
+              }"
+              type="button"
+              :aria-pressed="isCameraSelected(camera.id)"
+              :aria-disabled="!camera.success || isOnlySelectedCamera(camera)"
+              :title="cameraToggleTitle(camera)"
+              @click="toggleCamera(camera)"
             >
               <div class="camera-listing">
                 <span
                   class="indicator camera-indicator"
-                  :class="{ 'camera-indicator--inactive': !camera.success }"
+                  :class="{
+                    'camera-indicator--inactive': !camera.success,
+                    'camera-indicator--unused': camera.success && !isCameraSelected(camera.id),
+                  }"
                 ></span>
-                <span>{{ camera.name }}</span>
+                <span class="camera-name">{{ camera.name }}</span>
               </div>
               <span class="camera-status">
-                {{ camera.success ? 'Connected' : 'Unavailable' }}
+                {{ cameraStatusLabel(camera) }}
               </span>
-            </div>
+            </button>
           </template>
         </div>
       </div>
@@ -181,7 +193,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useIris } from '@/lib/useIris';
+import { useIris, type IrisCamera } from '@/lib/useIris';
 import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
 
 type AppView = 'capture' | 'analysis' | 'mocap';
@@ -192,12 +204,14 @@ interface Props {
   participants?: ProjectParticipant[];
   width?: number;
   modeSwitchDisabled?: boolean;
+  selectedCameraIds?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   participants: () => [],
   width: 240,
   modeSwitchDisabled: false,
+  selectedCameraIds: () => [],
 });
 
 const emit = defineEmits<{
@@ -209,6 +223,7 @@ const emit = defineEmits<{
   'run-session-opensim-scale': [{ participantId: string; sessionId: string }];
   'run-session-opensim-ik': [{ participantId: string; sessionId: string }];
   'link-recordings': [{ participantId: string; sessionId: string }];
+  'toggle-camera': [cameraId: string];
   'resize-sidebar': [width: number];
 }>();
 
@@ -244,6 +259,9 @@ const selectedSession = computed(() => {
 });
 const canRunOpenSim = computed(() => hasSessionRecording(selectedSession.value));
 const canRecordMotion = computed(() => hasSessionRecording(selectedSession.value));
+const selectedCameraCount = computed(() =>
+  irisCameras.value.filter((camera) => camera.success && isCameraSelected(camera.id)).length
+);
 
 onMounted(() => {
   window.addEventListener('click', closeSessionMenu);
@@ -273,6 +291,30 @@ function formatSessionDate(value: string) {
 
 function hasSessionRecording(session: ProjectSession | null | undefined) {
   return !!session && typeof session.recordingPath === 'string' && session.recordingPath.trim().length > 0;
+}
+
+function isCameraSelected(cameraId: number | string) {
+  return props.selectedCameraIds.length === 0 || props.selectedCameraIds.includes(String(cameraId));
+}
+
+function isOnlySelectedCamera(camera: IrisCamera) {
+  return camera.success && isCameraSelected(camera.id) && selectedCameraCount.value <= 1;
+}
+
+function cameraStatusLabel(camera: IrisCamera) {
+  if (!camera.success) return 'Unavailable';
+  return isCameraSelected(camera.id) ? 'Used' : 'Unused';
+}
+
+function cameraToggleTitle(camera: IrisCamera) {
+  if (!camera.success) return 'Camera unavailable';
+  if (isOnlySelectedCamera(camera)) return 'At least one camera must be used';
+  return isCameraSelected(camera.id) ? 'Stop using camera' : 'Use camera';
+}
+
+function toggleCamera(camera: IrisCamera) {
+  if (!camera.success || isOnlySelectedCamera(camera)) return;
+  emit('toggle-camera', String(camera.id));
 }
 
 function openSessionMenu(event: MouseEvent, participantId: string, sessionId: string) {
@@ -637,11 +679,36 @@ function stopResize() {
   background-color: rgba(148, 163, 184, 0.6);
 }
 
+.camera-indicator--unused {
+  background-color: rgba(148, 163, 184, 0.75);
+}
+
 .camera-listing {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.camera-toggle-link {
+  justify-content: space-between;
+}
+
+.camera-toggle-link--unused {
+  opacity: 0.62;
+}
+
+.camera-toggle-link--disabled {
+  cursor: not-allowed;
+}
+
+.camera-toggle-link--disabled:hover {
+  background: transparent;
+}
+
+.camera-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .camera-status {
