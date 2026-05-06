@@ -122,20 +122,22 @@
         >
           {{ recordLabel }}
         </button>
-        <button
-          class="toolbar-action toolbar-action-record toolbar-action-record-toggle"
-          :class="{ 'toolbar-action-recording': isRecording }"
-          type="button"
-          :disabled="recordMenuDisabled"
-          :aria-expanded="isRecordMenuOpen"
-          aria-haspopup="menu"
-          aria-label="Select recording mode"
-          @click="toggleRecordMenu"
-        >
-          <svg class="toolbar-record-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
+        <span class="toolbar-record-toggle-wrapper" :title="recordModeSwitchTitle">
+          <button
+            class="toolbar-action toolbar-action-record toolbar-action-record-toggle"
+            :class="{ 'toolbar-action-recording': isRecording }"
+            type="button"
+            :disabled="recordMenuDisabled"
+            :aria-expanded="isRecordMenuOpen"
+            aria-haspopup="menu"
+            aria-label="Select recording mode"
+            @click="toggleRecordMenu"
+          >
+            <svg class="toolbar-record-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </span>
 
         <div v-if="isRecordMenuOpen" class="toolbar-record-menu" role="menu">
           <button
@@ -169,6 +171,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 type RecordingMode = 'plain' | 'augment';
+const MODE_SWITCH_DISABLED_TOOLTIP = 'Disable IRIS to swap';
+
 interface RecordingTogglePayload {
   mode: RecordingMode;
 }
@@ -236,7 +240,10 @@ const recordLabel = computed(() => {
   if (props.isRecording) return 'Stop Recording';
   return selectedRecordMode.value === 'augment' ? 'Record + Augment' : 'Record';
 });
-const recordMenuDisabled = computed(() => props.recordDisabled || props.isRecording);
+const recordMenuDisabled = computed(() => props.recordDisabled || props.isRecording || props.isIrisRunning);
+const recordModeSwitchTitle = computed(() =>
+  props.isIrisRunning && !props.isRecording ? MODE_SWITCH_DISABLED_TOOLTIP : undefined
+);
 
 onMounted(() => {
   window.addEventListener('click', handleWindowClick);
@@ -482,6 +489,15 @@ function handleWindowClick(event: MouseEvent) {
   border-left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+}
+
+.toolbar-record-toggle-wrapper {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.toolbar-record-toggle-wrapper .toolbar-action-record-toggle {
+  height: 100%;
 }
 
 .toolbar-record-chevron {

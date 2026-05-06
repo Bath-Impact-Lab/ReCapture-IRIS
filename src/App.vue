@@ -77,6 +77,8 @@ watch(sessionSidenavWidth, (value) => {
 
 // View Navigation Handler
 function setView(view: 'capture' | 'mocap' | 'analysis') {
+  if (isIrisRunning.value && activeView.value !== view) return;
+
   if (currentProject.value) {
     currentProject.value.workspace.activeView = view;
   }
@@ -831,6 +833,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :activeView="activeView"
         :participants="currentProject.participants"
         :width="sessionSidenavWidth"
+        :modeSwitchDisabled="isIrisRunning"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"

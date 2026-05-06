@@ -84,33 +84,42 @@
       <div class="session-sidenav-divider"></div>
 
       <div class="session-sidenav-bottom">
-        <button
-          class="session-sidenav-action"
-          :class="{ active: activeView === 'mocap' }"
-          @click="emit('open-mocap')"
-          type="button"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="5" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="19"></line><line x1="5" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="19" y2="12"></line></svg>
-          Mocap Mode
-        </button>
-        <button
-          class="session-sidenav-action"
-          :class="{ active: activeView === 'capture' }"
-          @click="emit('open-capture')"
-          type="button"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
-          Capture Mode
-        </button>
-        <button
-          class="session-sidenav-action"
-          :class="{ active: activeView === 'analysis' }"
-          @click="emit('open-analysis')"
-          type="button"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          Analysis Mode
-        </button>
+        <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('mocap')">
+          <button
+            class="session-sidenav-action"
+            :class="{ active: activeView === 'mocap' }"
+            :disabled="isModeSwitchDisabled('mocap')"
+            @click="openMode('mocap')"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="5" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="19"></line><line x1="5" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="19" y2="12"></line></svg>
+            Mocap Mode
+          </button>
+        </div>
+        <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('capture')">
+          <button
+            class="session-sidenav-action"
+            :class="{ active: activeView === 'capture' }"
+            :disabled="isModeSwitchDisabled('capture')"
+            @click="openMode('capture')"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
+            Capture Mode
+          </button>
+        </div>
+        <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('analysis')">
+          <button
+            class="session-sidenav-action"
+            :class="{ active: activeView === 'analysis' }"
+            :disabled="isModeSwitchDisabled('analysis')"
+            @click="openMode('analysis')"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            Analysis Mode
+          </button>
+        </div>
       </div>
 
       <div class="session-sidenav-brand">
@@ -175,15 +184,20 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useIris } from '@/lib/useIris';
 import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
 
+type AppView = 'capture' | 'analysis' | 'mocap';
+const MODE_SWITCH_DISABLED_TOOLTIP = 'Disable IRIS to swap';
+
 interface Props {
-  activeView: 'capture' | 'analysis' | 'mocap';
+  activeView: AppView;
   participants?: ProjectParticipant[];
   width?: number;
+  modeSwitchDisabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   participants: () => [],
   width: 240,
+  modeSwitchDisabled: false,
 });
 
 const emit = defineEmits<{
@@ -280,6 +294,26 @@ function closeSessionMenu() {
     participantId: '',
     sessionId: '',
   };
+}
+
+function isModeSwitchDisabled(view: AppView) {
+  return props.modeSwitchDisabled && props.activeView !== view;
+}
+
+function modeSwitchTitle(view: AppView) {
+  return isModeSwitchDisabled(view) ? MODE_SWITCH_DISABLED_TOOLTIP : undefined;
+}
+
+function openMode(view: AppView) {
+  if (isModeSwitchDisabled(view)) return;
+
+  if (view === 'capture') {
+    emit('open-capture');
+  } else if (view === 'mocap') {
+    emit('open-mocap');
+  } else {
+    emit('open-analysis');
+  }
 }
 
 function recordSessionFromMenu() {
@@ -693,6 +727,10 @@ function stopResize() {
   padding: 0 12px;
 }
 
+.session-sidenav-action-wrapper {
+  width: 100%;
+}
+
 .session-sidenav-action {
   display: flex;
   align-items: center;
@@ -723,6 +761,20 @@ function stopResize() {
 
 .session-sidenav-action:hover svg {
   opacity: 1;
+}
+
+.session-sidenav-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.session-sidenav-action:disabled:hover {
+  background: transparent;
+  color: var(--sidenav-action, #4b5563);
+}
+
+.session-sidenav-action:disabled:hover svg {
+  opacity: 0.6;
 }
 
 .session-sidenav-action.active {

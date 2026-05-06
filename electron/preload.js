@@ -29,7 +29,6 @@ contextBridge.exposeInMainWorld('ipc', {
   presetStoreLoad: () => ipcRenderer.invoke('preset-store-load'),
   presetStoreSave: (store) => ipcRenderer.invoke('preset-store-save', store),
   augmentMarkers: (posesPath, outputDir) => ipcRenderer.invoke('augment-markers', { posesPath, outputDir }),
- 
 })
 
 contextBridge.exposeInMainWorld('electronAPI', {
