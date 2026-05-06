@@ -46,9 +46,6 @@ function getDa3StartupCalibrationOutputDir() {
 }
 
 function getIrisCliPath() {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'iris_cli.exe');
-  }
   const irisHome = getIrisHome();
   const resolved = process.env.IRIS_CLI_EXE
     || (irisHome && path.join(irisHome, 'bin', 'iris_cli.exe'))
@@ -57,9 +54,6 @@ function getIrisCliPath() {
 }
 
 function getModelDir() {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'models');
-  }
   const irisHome = getIrisHome();
   return process.env.IRIS_MODELS_DIR
     || (irisHome && path.join(irisHome, 'models'))

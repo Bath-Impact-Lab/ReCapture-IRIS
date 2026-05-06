@@ -42,7 +42,7 @@
   },
   "build": {
     "appId": "com.bath-impact-lab.iris-app",
-    "productName": "IRIS App",
+    "productName": "Recapture",
     "forceCodeSigning": false,
     "files": [
       "dist/**",
