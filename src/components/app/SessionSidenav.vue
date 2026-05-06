@@ -112,7 +112,7 @@
           <button
             class="session-sidenav-action"
             :class="{ active: activeView === 'analysis' }"
-            :disabled="isModeSwitchDisabled('analysis')"
+            :disabled=true
             @click="openMode('analysis')"
             type="button"
           >
