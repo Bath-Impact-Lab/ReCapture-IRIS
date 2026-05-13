@@ -1,22 +1,22 @@
 'use strict';
-
+ 
 const { app } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-
+ 
 const PIPE_NAME = '\\\\.\\pipe\\iris_ipc';
-
+ 
 function getIrisHomeFromRegistry() {
   if (process.platform !== 'win32') return null;
   try {
     const { execFileSync } = require('child_process');
     const query = (hive) => {
       try {
-        const out = execFileSync('reg', ['query', hive, '/v', 'IRIS_HOME'], { 
-          encoding: 'utf8', 
+        const out = execFileSync('reg', ['query', hive, '/v', 'IRIS_HOME'], {
+          encoding: 'utf8',
           windowsHide: true,
-          stdio: ['ignore', 'pipe', 'ignore'] 
+          stdio: ['ignore', 'pipe', 'ignore']
         });
         const match = out.match(/IRIS_HOME\s+\w+\s+(.+)/);
         return match ? match[1].trim() : null;
@@ -29,23 +29,23 @@ function getIrisHomeFromRegistry() {
     return null;
   }
 }
-
+ 
 function getIrisHome() {
   return process.env.IRIS_HOME || getIrisHomeFromRegistry();
 }
-
+ 
 const DEV_IRIS_CLI_EXE = process.env.IRIS_CLI_EXE
   || (getIrisHome() && path.join(getIrisHome(), 'bin', 'iris_cli.exe'))
   || path.join(os.homedir(), 'Documents', 'Iris', 'build', 'bin', 'iris_cli.exe');
-
+ 
 function getReCaptureAppDataDir() {
   return path.join(app.getPath('appData'), 'ReCapture');
 }
-
+ 
 function getDa3StartupCalibrationOutputDir() {
   return path.join(getReCaptureAppDataDir(), 'triangulation_da3_startup');
 }
-
+ 
 function getIrisCliPath() {
   if (app.isPackaged) {
     const bundledPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'iris_cli.exe');
@@ -59,7 +59,7 @@ function getIrisCliPath() {
     || path.join(os.homedir(), 'Documents', 'Iris', 'build', 'bin', 'iris_cli.exe');
   return resolved;
 }
-
+ 
 function getModelDir() {
   if (app.isPackaged) {
     const bundledModelsPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'models');
@@ -72,19 +72,19 @@ function getModelDir() {
     || (irisHome && path.join(irisHome, 'models'))
     || path.join(os.homedir(), 'Documents', 'Iris', 'models');
 }
-
+ 
 function buildConfigFromOptions(opts = {}) {
   const run_id = opts.run_id || `run-${Date.now()}`;
   const width = opts.camera_width ?? 1920;
   const height = opts.camera_height ?? 1080;
   const cameras = opts.cameras || [];
-  
+ 
   // Pipeline mode flags
   const captureOnly = opts.capture_only === true;
-  const isIngest = opts.is_ingest === true; 
+  const isIngest = opts.is_ingest === true;
   const outputDir = getDa3StartupCalibrationOutputDir().replace(/\\/g, '/');
   const da3FrameSource = isIngest ? 'ingest' : 'frame_batch';
-
+ 
   const camera_ids = cameras.map((_, index) => index);
   const fps = Number.isFinite(opts.video_fps)
     ? opts.video_fps
@@ -93,7 +93,7 @@ function buildConfigFromOptions(opts = {}) {
     ? opts.rotation
     : (cameras.length > 0 && Number.isFinite(cameras[0].rotation) ? cameras[0].rotation : 0);
   const modelDir = getModelDir().replace(/\\/g, '/');
-
+ 
   // Define the base shared block
   const shared = {
     execution: {
@@ -117,18 +117,18 @@ function buildConfigFromOptions(opts = {}) {
       }
     }
   };
-
+ 
   // Only inject models and detection defaults if we are running the full pipeline
   if (!captureOnly) {
     shared.models = {
       detection: {
-        rtmdet_people: {
-          type: "rtmdet",
-          rtmdet_engine_path: `${modelDir}/rtmdet_t_bs4_fp16.trt`,
-          rtmdet_input_width: 640,
-          rtmdet_input_height: 640,
-          rtmdet_conf_threshold: 0.7,
-          rtmdet_iou_threshold: 0.45
+        yolox_people: {
+          type: "yolox",
+          yolox_engine_path: `${modelDir}/yolox_s_bs16.trt`,
+          yolox_input_width: 640,
+          yolox_input_height: 640,
+          yolox_conf_threshold: 0.7,
+          yolox_iou_threshold: 0.45
         }
       },
       reid: {
@@ -154,7 +154,7 @@ function buildConfigFromOptions(opts = {}) {
       detection_skip_frames: 20
     };
   }
-
+ 
   // Define the Source Stage dynamically (Ingest vs. Capture)
   const sourceStage = isIngest ? {
     multi_video_ingestion: {
@@ -170,16 +170,16 @@ function buildConfigFromOptions(opts = {}) {
       id_prefix: "cap"
     }
   };
-
+ 
   // Construct the pipeline dynamically
   let pipeline = { ...sourceStage };
-
+ 
   if (!captureOnly) {
     pipeline = {
       ...pipeline,
       detection: {
         id: "det0",
-        model: "rtmdet_people",
+        model: "yolox_people",
         reid_model: "osnet_x05"
       },
       global_reid_tracking: {
@@ -200,9 +200,10 @@ function buildConfigFromOptions(opts = {}) {
         pose_source: "pose0",
         camera_group: "capture_rig",
         da3_startup_calibration: {
-          engine: `${modelDir}/DA3-LARGE-1.1.engine`,
+          engine: `${modelDir}/da3_base.trt`,
           output_dir: outputDir,
           frame_source: da3FrameSource,
+          model_type: "base",
           viewer_align: true,
           save_ply: "scene.ply"
         },
@@ -221,13 +222,13 @@ function buildConfigFromOptions(opts = {}) {
       }
     };
   }
-
+ 
   // Always append output as the final stage
   pipeline.output = {
     id: "output",
     camera_group: "capture_rig"
   };
-
+ 
   return {
     run_id,
     runtime: {
@@ -250,7 +251,7 @@ function buildConfigFromOptions(opts = {}) {
     pipeline: pipeline
   };
 }
-
+ 
 module.exports = {
   PIPE_NAME,
   DEV_IRIS_CLI_EXE,
