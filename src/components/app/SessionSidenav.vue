@@ -9,7 +9,7 @@
           type="button"
           aria-label="Toggle Connected Cameras"
         >
-          <h2 class="session-sidenav-title">Connected Cameras</h2>
+          <h2 class="session-sidenav-title">Cameras</h2>
           <svg
             xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             class="chevron" :class="{ 'open': isCamerasOpen }"
@@ -19,14 +19,17 @@
         </button>
 
         <div v-show="isCamerasOpen" class="session-sidenav-list">
-          <div v-if="areIrisCamerasLoading && !hasIrisCameras" class="session-sidenav-empty-state">
-            Loading IRIS cameras...
+          <div v-if="areIrisCamerasLoading && !hasIrisCameras" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            Detecting cameras...
           </div>
-          <div v-else-if="irisCameraErrorMessage" class="session-sidenav-empty-state">
+          <div v-else-if="irisCameraErrorMessage" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             {{ irisCameraErrorMessage }}
           </div>
-          <div v-else-if="!hasIrisCameras" class="session-sidenav-empty-state">
-            No IRIS cameras detected.
+          <div v-else-if="!hasIrisCameras" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            Connect supported camera.
           </div>
           <template v-else>
             <button
@@ -86,7 +89,8 @@
             </div>
           </button>
         </div>
-        <div v-else class="session-sidenav-empty-state">
+        <div v-else class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           No sessions yet.
         </div>
       </div>
@@ -538,6 +542,18 @@ function stopResize() {
 [data-theme="light"] .session-sidenav-empty-state {
   background: rgba(31, 78, 121, 0.04);
 }
+
+.session-sidenav-empty-state--camera {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-state-icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
 
 /* Dropdown Toggle Styles */
 .dropdown-toggle {
