@@ -18,7 +18,10 @@ import AnalysisWindow from '@/components/analysisWindow.vue';
 // ── Modals & Overlays ────────────────────────────────────────────────────────
 import SettingsModal from '@/components/settingsModal.vue';
 
-const { 
+declare const __APP_VERSION__: string;
+const appVersion = __APP_VERSION__;
+
+const {
   hasCurrentProject, 
   currentProject, 
   recentProjects,
@@ -845,7 +848,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
   <div id="app-container" :data-theme="currentTheme" :style="appContainerStyle">
     
     <AppTopBar 
-      appTitle="ReCapture" 
+      :appTitle="`ReCapture v${appVersion}`"
       :homeDisabled="!hasCurrentProject"
       @toggle-settings="showSettings = !showSettings" 
       @navigate-home="setCurrentProject(null)"

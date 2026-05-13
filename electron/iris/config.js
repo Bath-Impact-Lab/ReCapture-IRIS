@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('electron');
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
@@ -47,7 +48,10 @@ function getDa3StartupCalibrationOutputDir() {
 
 function getIrisCliPath() {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'iris_cli.exe');
+    const bundledPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'iris_cli.exe');
+    if (fs.existsSync(bundledPath)) {
+      return bundledPath;
+    }
   }
   const irisHome = getIrisHome();
   const resolved = process.env.IRIS_CLI_EXE
@@ -58,7 +62,10 @@ function getIrisCliPath() {
 
 function getModelDir() {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'models');
+    const bundledModelsPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'iris_runtime_bundle', 'models');
+    if (fs.existsSync(bundledModelsPath)) {
+      return bundledModelsPath;
+    }
   }
   const irisHome = getIrisHome();
   return process.env.IRIS_MODELS_DIR

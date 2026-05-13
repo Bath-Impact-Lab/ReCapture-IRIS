@@ -24,6 +24,7 @@ const fs = require('fs');
 const os = require('os');
 const { randomUUID } = require('crypto');
 const { spawn, execFile, exec } = require('child_process')
+const { version: APP_VERSION } = require('../package.json');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -136,7 +137,7 @@ function createWindow() {
         minHeight: 640,
         frame: false,
         autoHideMenuBar: true,
-        title: process.env.VITE_APP_TITLE || 'IRIS Starter',
+        title: `${process.env.VITE_APP_TITLE || 'ReCapture'} v${APP_VERSION}`,
         backgroundColor: nativeTheme.shouldUseDarkColors ? '#111418' : '#ffffff',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
