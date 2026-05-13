@@ -1,5 +1,4 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { useProject } from '@/lib/useProject';
 
 export interface IrisCameraExtrinsics {
   R: number[];
@@ -59,6 +58,9 @@ export interface IrisStartOptions {
   rotation: number;
   output_dir: string;
   capture_only?: boolean;
+  is_ingest?: boolean;
+  recordingPath?: string;
+  video_paths?: string[];
   stream?: boolean;
 }
 
@@ -83,11 +85,6 @@ const cliOutput = ref<IrisCliOutput[]>([]);
 const wsUrl = ref<string | null>(null);
 
 let ipcListenersRegistered = false;
-
-function getParentDirectory(filePath: string | null | undefined) {
-  if (typeof filePath !== 'string' || filePath.trim().length === 0) return '';
-  return filePath.replace(/[\\/][^\\/]+$/, '');
-}
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -233,8 +230,6 @@ function ensureIpcListeners() {
 
 export function useIris(options: UseIrisOptions = {}) {
   const { autoFetch = true, pollInterval = 0, autoCheck = true } = options;
-  const { currentProject } = useProject();
-
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   async function refreshCameras() {
@@ -266,8 +261,7 @@ export function useIris(options: UseIrisOptions = {}) {
         return cameras.value;
       }
 
-      const projectOutputDir = getParentDirectory(currentProject.value?.path);
-      const extrinsicsResult = await getExtrinsics(projectOutputDir || undefined);
+      const extrinsicsResult = await getExtrinsics();
       setCameraList(extractIrisCameras(extrinsicsResult));
       return cameras.value;
     } catch (err) {

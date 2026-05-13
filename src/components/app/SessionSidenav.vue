@@ -29,22 +29,34 @@
             No IRIS cameras detected.
           </div>
           <template v-else>
-            <div
+            <button
               v-for="camera in irisCameras"
               :key="`camera-${camera.id}`"
-              class="session-sidenav-link session-sidenav-link--static"
+              class="session-sidenav-link camera-toggle-link"
+              :class="{
+                'camera-toggle-link--unused': camera.success && !isCameraSelected(camera.id),
+                'camera-toggle-link--disabled': !camera.success || isOnlySelectedCamera(camera),
+              }"
+              type="button"
+              :aria-pressed="isCameraSelected(camera.id)"
+              :aria-disabled="!camera.success || isOnlySelectedCamera(camera)"
+              :title="cameraToggleTitle(camera)"
+              @click="toggleCamera(camera)"
             >
               <div class="camera-listing">
                 <span
                   class="indicator camera-indicator"
-                  :class="{ 'camera-indicator--inactive': !camera.success }"
+                  :class="{
+                    'camera-indicator--inactive': !camera.success,
+                    'camera-indicator--unused': camera.success && !isCameraSelected(camera.id),
+                  }"
                 ></span>
-                <span>{{ camera.name }}</span>
+                <span class="camera-name">{{ camera.name }}</span>
               </div>
               <span class="camera-status">
-                {{ camera.success ? 'Connected' : 'Unavailable' }}
+                {{ cameraStatusLabel(camera) }}
               </span>
-            </div>
+            </button>
           </template>
         </div>
       </div>
@@ -57,20 +69,19 @@
             v-for="session in participant.sessions"
             :key="session.id"
             class="session-sidenav-link session-trial-link"
-            :class="{ 'session-trial-link--complete': session.completed }"
+            :class="{ 'session-trial-link--complete': hasSessionRecording(session) }"
             type="button"
-            :title="`Right click to record ${session.name}`"
-            @click="emit('toggle-session-complete', { participantId: participant.id, sessionId: session.id })"
+            :title="`Right click to manage ${session.name}`"
             @contextmenu.prevent="openSessionMenu($event, participant.id, session.id)"
           >
             <div class="link-left">
-              <span class="indicator" :class="{ 'indicator-complete': session.completed }"></span>
+              <span class="indicator" :class="{ 'indicator-complete': hasSessionRecording(session) }"></span>
               <div class="session-meta">
                 <span class="session-name">{{ session.name }}</span>
                 <span class="session-date">{{ formatSessionDate(session.date) }}</span>
               </div>
               <span class="session-status">
-                {{ session.completed ? 'Complete' : 'Pending' }}
+                {{ hasSessionRecording(session) ? 'Complete' : 'Pending' }}
               </span>
             </div>
           </button>
@@ -85,33 +96,42 @@
       <div class="session-sidenav-divider"></div>
 
       <div class="session-sidenav-bottom">
-        <button
-          class="session-sidenav-action"
-          :class="{ active: activeView === 'mocap' }"
-          @click="emit('open-mocap')"
-          type="button"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="5" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="19"></line><line x1="5" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="19" y2="12"></line></svg>
-          Mocap Mode
-        </button>
-        <button
-          class="session-sidenav-action"
-          :class="{ active: activeView === 'capture' }"
-          @click="emit('open-capture')"
-          type="button"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
-          Capture Mode
-        </button>
-        <button
-          class="session-sidenav-action"
-          :class="{ active: activeView === 'analysis' }"
-          @click="emit('open-analysis')"
-          type="button"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          Analysis Mode
-        </button>
+        <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('mocap')">
+          <button
+            class="session-sidenav-action"
+            :class="{ active: activeView === 'mocap' }"
+            :disabled="isModeSwitchDisabled('mocap')"
+            @click="openMode('mocap')"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="5" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="19"></line><line x1="5" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="19" y2="12"></line></svg>
+            Mocap Mode
+          </button>
+        </div>
+        <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('capture')">
+          <button
+            class="session-sidenav-action"
+            :class="{ active: activeView === 'capture' }"
+            :disabled="isModeSwitchDisabled('capture')"
+            @click="openMode('capture')"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
+            Capture Mode
+          </button>
+        </div>
+        <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('analysis')">
+          <button
+            class="session-sidenav-action"
+            :class="{ active: activeView === 'analysis' }"
+            :disabled=true
+            @click="openMode('analysis')"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            Analysis Mode
+          </button>
+        </div>
       </div>
 
       <div class="session-sidenav-brand">
@@ -131,30 +151,80 @@
       <button class="template-context-action" type="button" @click="recordSessionFromMenu">
         Record Trial
       </button>
+      <button
+        class="template-context-action"
+        :disabled="!canRecordMotion"
+        type="button"
+        @click="recordMotionFromMenu"
+      >
+        Record Motion
+      </button>
+      <button
+        class="template-context-action"
+        :disabled="!canRunOpenSim"
+        type="button"
+        @click="runOpenSimScaleFromMenu"
+      >
+        Run OpenSim Scale
+      </button>
+      <button
+        class="template-context-action"
+        :disabled="!canRunOpenSim"
+        type="button"
+        @click="runOpenSimIkFromMenu"
+      >
+        Run OpenSim IK
+      </button>
+      <button class="template-context-action" type="button" @click="linkRecordingsFromMenu">
+        Link Recordings
+      </button>
     </div>
+
+    <div
+      class="session-sidenav-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      :aria-valuenow="Math.round(props.width)"
+      @pointerdown.prevent="beginResize"
+    ></div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useIris } from '@/lib/useIris';
-import type { ProjectParticipant } from '@/lib/useProject';
+import { useIris, type IrisCamera } from '@/lib/useIris';
+import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
+
+type AppView = 'capture' | 'analysis' | 'mocap';
+const MODE_SWITCH_DISABLED_TOOLTIP = 'Disable IRIS to swap';
 
 interface Props {
-  activeView: 'capture' | 'analysis' | 'mocap';
+  activeView: AppView;
   participants?: ProjectParticipant[];
+  width?: number;
+  modeSwitchDisabled?: boolean;
+  selectedCameraIds?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   participants: () => [],
+  width: 240,
+  modeSwitchDisabled: false,
+  selectedCameraIds: () => [],
 });
 
 const emit = defineEmits<{
   'open-capture': [];
   'open-analysis': [];
   'open-mocap': [];
-  'toggle-session-complete': [{ participantId: string; sessionId: string }];
   'record-session': [{ participantId: string; sessionId: string }];
+  'record-motion': [{ participantId: string; sessionId: string }];
+  'run-session-opensim-scale': [{ participantId: string; sessionId: string }];
+  'run-session-opensim-ik': [{ participantId: string; sessionId: string }];
+  'link-recordings': [{ participantId: string; sessionId: string }];
+  'toggle-camera': [cameraId: string];
+  'resize-sidebar': [width: number];
 }>();
 
 // State for the main cameras dropdown
@@ -180,6 +250,18 @@ const hasIrisCameras = computed(() => irisCameras.value.length > 0);
 const irisCameraErrorMessage = computed(() =>
   irisCamerasError.value ? 'Unable to load IRIS cameras.' : ''
 );
+const isResizing = ref(false);
+const selectedSession = computed(() => {
+  if (!sessionMenu.value.visible) return null;
+
+  const participant = participants.value.find((entry) => entry.id === sessionMenu.value.participantId);
+  return participant?.sessions.find((entry) => entry.id === sessionMenu.value.sessionId) ?? null;
+});
+const canRunOpenSim = computed(() => hasSessionRecording(selectedSession.value));
+const canRecordMotion = computed(() => hasSessionRecording(selectedSession.value));
+const selectedCameraCount = computed(() =>
+  irisCameras.value.filter((camera) => camera.success && isCameraSelected(camera.id)).length
+);
 
 onMounted(() => {
   window.addEventListener('click', closeSessionMenu);
@@ -188,6 +270,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  stopResize();
   window.removeEventListener('click', closeSessionMenu);
   window.removeEventListener('blur', closeSessionMenu);
   window.removeEventListener('scroll', closeSessionMenu, true);
@@ -204,6 +287,34 @@ function formatSessionDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function hasSessionRecording(session: ProjectSession | null | undefined) {
+  return !!session && typeof session.recordingPath === 'string' && session.recordingPath.trim().length > 0;
+}
+
+function isCameraSelected(cameraId: number | string) {
+  return props.selectedCameraIds.length === 0 || props.selectedCameraIds.includes(String(cameraId));
+}
+
+function isOnlySelectedCamera(camera: IrisCamera) {
+  return camera.success && isCameraSelected(camera.id) && selectedCameraCount.value <= 1;
+}
+
+function cameraStatusLabel(camera: IrisCamera) {
+  if (!camera.success) return 'Unavailable';
+  return isCameraSelected(camera.id) ? 'Used' : 'Unused';
+}
+
+function cameraToggleTitle(camera: IrisCamera) {
+  if (!camera.success) return 'Camera unavailable';
+  if (isOnlySelectedCamera(camera)) return 'At least one camera must be used';
+  return isCameraSelected(camera.id) ? 'Stop using camera' : 'Use camera';
+}
+
+function toggleCamera(camera: IrisCamera) {
+  if (!camera.success || isOnlySelectedCamera(camera)) return;
+  emit('toggle-camera', String(camera.id));
 }
 
 function openSessionMenu(event: MouseEvent, participantId: string, sessionId: string) {
@@ -227,12 +338,95 @@ function closeSessionMenu() {
   };
 }
 
+function isModeSwitchDisabled(view: AppView) {
+  return props.modeSwitchDisabled && props.activeView !== view;
+}
+
+function modeSwitchTitle(view: AppView) {
+  return isModeSwitchDisabled(view) ? MODE_SWITCH_DISABLED_TOOLTIP : undefined;
+}
+
+function openMode(view: AppView) {
+  if (isModeSwitchDisabled(view)) return;
+
+  if (view === 'capture') {
+    emit('open-capture');
+  } else if (view === 'mocap') {
+    emit('open-mocap');
+  } else {
+    emit('open-analysis');
+  }
+}
+
 function recordSessionFromMenu() {
   emit('record-session', {
     participantId: sessionMenu.value.participantId,
     sessionId: sessionMenu.value.sessionId,
   });
   closeSessionMenu();
+}
+
+function recordMotionFromMenu() {
+  if (!canRecordMotion.value) return;
+
+  emit('record-motion', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function runOpenSimScaleFromMenu() {
+  if (!canRunOpenSim.value) return;
+
+  emit('run-session-opensim-scale', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function runOpenSimIkFromMenu() {
+  if (!canRunOpenSim.value) return;
+
+  emit('run-session-opensim-ik', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function linkRecordingsFromMenu() {
+  emit('link-recordings', {
+    participantId: sessionMenu.value.participantId,
+    sessionId: sessionMenu.value.sessionId,
+  });
+  closeSessionMenu();
+}
+
+function beginResize() {
+  if (window.innerWidth <= 768) return;
+
+  isResizing.value = true;
+  document.body.classList.add('session-sidenav-resizing');
+  window.addEventListener('pointermove', handleResizePointerMove);
+  window.addEventListener('pointerup', stopResize);
+  window.addEventListener('pointercancel', stopResize);
+}
+
+function handleResizePointerMove(event: PointerEvent) {
+  if (!isResizing.value) return;
+  emit('resize-sidebar', event.clientX);
+}
+
+function stopResize() {
+  if (!isResizing.value) return;
+
+  isResizing.value = false;
+  document.body.classList.remove('session-sidenav-resizing');
+  window.removeEventListener('pointermove', handleResizePointerMove);
+  window.removeEventListener('pointerup', stopResize);
+  window.removeEventListener('pointercancel', stopResize);
 }
 </script>
 
@@ -250,6 +444,41 @@ function recordSessionFromMenu() {
   z-index: 10;
   transition: background 0.3s ease, border-color 0.3s ease;
   overflow: hidden; /* Lock main component from scrolling */
+}
+
+.session-sidenav-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 30;
+}
+
+.session-sidenav-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.session-sidenav-resizer:hover::before {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 55%, transparent);
+}
+
+:global(body.session-sidenav-resizing) {
+  cursor: col-resize;
+  user-select: none;
+}
+
+:global(body.session-sidenav-resizing *) {
+  cursor: col-resize !important;
 }
 
 /* Scrollable Container for Lists */
@@ -450,11 +679,36 @@ function recordSessionFromMenu() {
   background-color: rgba(148, 163, 184, 0.6);
 }
 
+.camera-indicator--unused {
+  background-color: rgba(148, 163, 184, 0.75);
+}
+
 .camera-listing {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.camera-toggle-link {
+  justify-content: space-between;
+}
+
+.camera-toggle-link--unused {
+  opacity: 0.62;
+}
+
+.camera-toggle-link--disabled {
+  cursor: not-allowed;
+}
+
+.camera-toggle-link--disabled:hover {
+  background: transparent;
+}
+
+.camera-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .camera-status {
@@ -517,6 +771,15 @@ function recordSessionFromMenu() {
   background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
 }
 
+.template-context-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.template-context-action:disabled:hover {
+  background: transparent;
+}
+
 .session-sidenav-divider {
   width: calc(100% - 24px);
   height: 1px;
@@ -529,6 +792,10 @@ function recordSessionFromMenu() {
   flex-direction: column;
   gap: 4px;
   padding: 0 12px;
+}
+
+.session-sidenav-action-wrapper {
+  width: 100%;
 }
 
 .session-sidenav-action {
@@ -563,6 +830,20 @@ function recordSessionFromMenu() {
   opacity: 1;
 }
 
+.session-sidenav-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.session-sidenav-action:disabled:hover {
+  background: transparent;
+  color: var(--sidenav-action, #4b5563);
+}
+
+.session-sidenav-action:disabled:hover svg {
+  opacity: 0.6;
+}
+
 .session-sidenav-action.active {
   background: var(--accent-light, rgba(59, 130, 246, 0.1));
   color: var(--accent, #2563eb);
@@ -575,6 +856,10 @@ function recordSessionFromMenu() {
 
 @media (max-width: 768px) {
   .session-sidenav {
+    display: none;
+  }
+
+  .session-sidenav-resizer {
     display: none;
   }
 }

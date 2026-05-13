@@ -1,7 +1,7 @@
 {
-  "name": "iris-starter-project",
-  "version": "0.1.4",
-  "description": "Electron starter app for IRIS with Three.js and camera selection UI",
+  "name": "recapture",
+  "version": "0.1.6",
+  "description": "Recapture IRIS App",
   "main": "electron/main.js",
   "author": "",
   "license": "MIT",
@@ -17,10 +17,10 @@
     "wait:9222": "wait-on tcp:9222"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.97.0",
     "dotenv": "^17.3.1",
     "echarts": "^6.0.0",
     "node-pty": "^1.1.0",
+    "onnxruntime-node": "^1.24.3",
     "pinia": "^3.0.4",
     "three": "0.169.0",
     "vue": "^3.5.31",

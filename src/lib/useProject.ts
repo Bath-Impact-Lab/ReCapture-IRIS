@@ -25,6 +25,7 @@ export interface ProjectSession {
   name: string;
   date: string;
   completed: boolean;
+  recordingPath: string | null;
   templateId: string | null;
   exercises: string[];
 }
@@ -64,6 +65,7 @@ type ProjectUpdate =
   };
 
 const PROJECT_STORAGE_KEY = 'recapture.recent-projects';
+const PROJECT_MOTIONS_DIRECTORY_NAME = 'motions';
 const currentProject = ref<ProjectDocument | null>(null);
 const recentProjects = ref<RecentProjectEntry[]>(loadRecentProjects());
 
@@ -79,6 +81,14 @@ function inferProjectName(filePath: string | null | undefined) {
   if (!filePath) return 'Untitled Project';
   const name = filePath.split(/[\\/]/).pop() ?? 'Untitled Project';
   return name.replace(/\.json$/i, '').replace(/\.recapture$/i, '');
+}
+
+function getProjectMotionsDir(filePath: string | null | undefined) {
+  if (!filePath) return null;
+  const projectDir = filePath.replace(/[\\/][^\\/]+$/, '');
+  if (!projectDir) return null;
+  const separator = filePath.includes('\\') ? '\\' : '/';
+  return `${projectDir}${separator}${PROJECT_MOTIONS_DIRECTORY_NAME}`;
 }
 
 function sanitizeProjectTheme(theme: unknown): ProjectTheme {
@@ -108,11 +118,16 @@ function sanitizeProjectParticipants(participants: unknown): ProjectParticipant[
       sessions: Array.isArray(maybeParticipant?.sessions)
         ? maybeParticipant!.sessions.map((session, sessionIndex) => {
           const maybeSession = session as Partial<ProjectSession> | null | undefined;
+          const recordingPath = typeof maybeSession?.recordingPath === 'string' && maybeSession.recordingPath.trim()
+            ? maybeSession.recordingPath
+            : null;
+
           return {
             id: maybeSession?.id || `${name.toLowerCase().replace(/\s+/g, '-')}-session-${sessionIndex + 1}`,
             name: maybeSession?.name?.trim() || maybeSession?.date || 'Untitled Session',
             date: maybeSession?.date || nowIso(),
-            completed: maybeSession?.completed === true,
+            completed: recordingPath !== null,
+            recordingPath,
             templateId: typeof maybeSession?.templateId === 'string' ? maybeSession.templateId : null,
             exercises: Array.isArray(maybeSession?.exercises)
               ? maybeSession.exercises.filter((value): value is string => typeof value === 'string')
@@ -137,7 +152,7 @@ function sanitizeProjectFile(raw: Partial<ProjectFile> | null | undefined, fileP
     updatedAt,
     settings: {
       theme: sanitizeProjectTheme(raw?.settings?.theme),
-      recordingsDir: raw?.settings?.recordingsDir ?? null,
+      recordingsDir: getProjectMotionsDir(filePath) ?? raw?.settings?.recordingsDir ?? null,
       presetId: typeof raw?.settings?.presetId === 'string' ? raw.settings.presetId : null,
     },
     workspace: {
@@ -187,7 +202,8 @@ function toProjectFile(project: ProjectDocument | ProjectFile): ProjectFile {
         id: session.id,
         name: session.name,
         date: session.date,
-        completed: session.completed,
+        completed: typeof session.recordingPath === 'string' && session.recordingPath.trim().length > 0,
+        recordingPath: session.recordingPath,
         templateId: session.templateId,
         exercises: [...session.exercises],
       })),
@@ -212,11 +228,53 @@ function loadRecentProjects(): RecentProjectEntry[] {
   }
 }
 
+function removeRecentProject(filePath: string) {
+  const nextProjects = recentProjects.value.filter((entry) => entry.path !== filePath);
+  if (nextProjects.length === recentProjects.value.length) return;
+  recentProjects.value = nextProjects;
+  persistRecentProjects();
+}
+
 function persistRecentProjects() {
   try {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(recentProjects.value));
   } catch {
     // Ignore persistence failures in non-persistent environments.
+  }
+}
+
+let recentProjectSyncPromise: Promise<RecentProjectEntry[]> | null = null;
+let hasStartedRecentProjectSync = false;
+
+async function syncRecentProjectsWithFilesystem() {
+  if (recentProjectSyncPromise) {
+    return recentProjectSyncPromise;
+  }
+
+  recentProjectSyncPromise = (async () => {
+    if (!window.ipc?.projectPruneRecents) {
+      return recentProjects.value;
+    }
+
+    const result = await window.ipc.projectPruneRecents(recentProjects.value);
+    const nextProjects = Array.isArray(result?.entries)
+      ? result.entries.filter((entry): entry is RecentProjectEntry =>
+        !!entry &&
+        typeof entry.path === 'string' &&
+        typeof entry.name === 'string' &&
+        typeof entry.lastOpenedAt === 'string'
+      )
+      : recentProjects.value;
+
+    recentProjects.value = nextProjects;
+    persistRecentProjects();
+    return nextProjects;
+  })();
+
+  try {
+    return await recentProjectSyncPromise;
+  } finally {
+    recentProjectSyncPromise = null;
   }
 }
 
@@ -235,6 +293,7 @@ function trackRecentProject(project: ProjectDocument) {
   ].slice(0, 10);
 
   persistRecentProjects();
+  void syncRecentProjectsWithFilesystem();
 }
 
 function setCurrentProject(project: ProjectDocument | null) {
@@ -263,7 +322,12 @@ async function createProject(seed: Partial<ProjectFile> = {}) {
 async function openProject(filePath?: string) {
   if (window.ipc?.projectOpen) {
     const result = await window.ipc.projectOpen(filePath);
-    if (!result.ok || result.canceled || !result.project) return null;
+    if (!result.ok || result.canceled || !result.project) {
+      if (filePath) {
+        removeRecentProject(filePath);
+      }
+      return null;
+    }
 
     const project = sanitizeProjectFile(result.project, result.path ?? filePath ?? null);
     setCurrentProject(project);
@@ -326,6 +390,11 @@ async function updateCurrentProject(update: ProjectUpdate, options: { save?: boo
 }
 
 export function useProject() {
+  if (!hasStartedRecentProjectSync) {
+    hasStartedRecentProjectSync = true;
+    void syncRecentProjectsWithFilesystem();
+  }
+
   return {
     currentProject,
     recentProjects,
