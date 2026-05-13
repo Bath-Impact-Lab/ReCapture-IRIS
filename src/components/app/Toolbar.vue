@@ -31,9 +31,14 @@
 
     <div class="toolbar-group">
       <label class="toolbar-label" for="fps-select">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <line x1="6" y1="4" x2="6" y2="20"/>
+          <line x1="18" y1="4" x2="18" y2="20"/>
+          <line x1="2" y1="9" x2="6" y2="9"/>
+          <line x1="2" y1="15" x2="6" y2="15"/>
+          <line x1="18" y1="9" x2="22" y2="9"/>
+          <line x1="18" y1="15" x2="22" y2="15"/>
         </svg>
         FPS
       </label>
@@ -44,11 +49,11 @@
           v-model="selectedFps"
           @change="emit('update:fps', selectedFps)"
         >
-          <option :value="15">15 fps</option>
-          <option :value="30">30 fps</option>
-          <option :value="60">60 fps</option>
-          <option :value="100">100 fps</option>
-          <option :value="120">120 fps</option>
+          <option :value="15">15</option>
+          <option :value="30">30</option>
+          <option :value="60">60</option>
+          <option :value="100">100</option>
+          <option :value="120">120</option>
         </select>
         <svg class="select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"></polyline>
@@ -87,24 +92,32 @@
     <template v-if="showStartButton || showStopButton || showRecordButton">
       <div class="toolbar-divider"></div>
 
+      <!-- IRIS Power Control -->
       <button
-        v-if="showStartButton"
-        class="toolbar-action"
+        v-if="showStartButton || showStopButton"
+        class="iris-control-btn"
+        :class="irisControlClass"
         type="button"
-        :disabled="startDisabled"
-        @click="emit('start-iris')"
+        :disabled="irisControlDisabled"
+        :title="irisControlTooltip"
+        @click="irisControlClick"
       >
-        {{ startLabel }}
-      </button>
-
-      <button
-        v-if="showStopButton"
-        class="toolbar-action toolbar-action-danger"
-        type="button"
-        :disabled="stopDisabled"
-        @click="emit('stop-iris')"
-      >
-        {{ stopLabel }}
+        <!-- Spinning ring shown while transitioning -->
+        <svg v-if="props.isStartingIris || props.isStoppingIris" class="iris-ctrl-spinner" width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="13" stroke="currentColor" stroke-width="2" stroke-dasharray="60 22" stroke-linecap="round"/>
+        </svg>
+        <!-- Power icon (idle) -->
+        <svg v-else-if="!props.isIrisRunning" class="iris-ctrl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+          <line x1="12" y1="2" x2="12" y2="12"/>
+        </svg>
+        <!-- Stop icon (running) -->
+        <svg v-else class="iris-ctrl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="3"/>
+        </svg>
+        <!-- Status dot -->
+        <span class="iris-ctrl-dot"></span>
+        <span class="iris-ctrl-label">{{ irisControlLabel }}</span>
       </button>
 
       <div
@@ -227,15 +240,6 @@ const selectedRotation = ref(props.rotation);
 const selectedRecordMode = ref<RecordingMode>(props.recordMode);
 const isRecordMenuOpen = ref(false);
 const recordActionRef = ref<HTMLElement | null>(null);
-const startLabel = computed(() => {
-  if (props.isStartingIris) return 'Starting IRIS...';
-  if (props.isIrisRunning) return 'IRIS Running';
-  return 'Start IRIS';
-});
-const stopLabel = computed(() => {
-  if (props.isStoppingIris) return 'Stopping IRIS...';
-  return 'Stop IRIS';
-});
 const recordLabel = computed(() => {
   if (props.isRecording) return 'Stop Recording';
   return selectedRecordMode.value === 'augment' ? 'Record + Augment' : 'Record';
@@ -244,6 +248,35 @@ const recordMenuDisabled = computed(() => props.recordDisabled || props.isRecord
 const recordModeSwitchTitle = computed(() =>
   props.isIrisRunning && !props.isRecording ? MODE_SWITCH_DISABLED_TOOLTIP : undefined
 );
+
+// IRIS control button
+const irisControlClass = computed(() => {
+  if (props.isStartingIris) return 'iris-state-starting';
+  if (props.isStoppingIris) return 'iris-state-stopping';
+  if (props.isIrisRunning)  return 'iris-state-running';
+  return 'iris-state-idle';
+});
+const irisControlDisabled = computed(() => {
+  if (props.isStartingIris || props.isStoppingIris) return true;
+  if (props.isIrisRunning) return props.stopDisabled;
+  return props.startDisabled;
+});
+const irisControlTooltip = computed(() => {
+  if (props.isStartingIris) return 'Warming up IRIS…';
+  if (props.isStoppingIris) return 'Shutting down IRIS…';
+  if (props.isIrisRunning)  return 'IRIS is running — click to stop';
+  return 'Start IRIS';
+});
+const irisControlLabel = computed(() => {
+  if (props.isStartingIris) return 'Warming…';
+  if (props.isStoppingIris) return 'Stopping…';
+  if (props.isIrisRunning)  return 'Running';
+  return 'Start';
+});
+function irisControlClick() {
+  if (props.showStopButton && props.isIrisRunning) emit('stop-iris');
+  else if (props.showStartButton) emit('start-iris');
+}
 
 onMounted(() => {
   window.addEventListener('click', handleWindowClick);
@@ -421,6 +454,101 @@ function handleWindowClick(event: MouseEvent) {
 [data-theme="light"] .toolbar-divider {
   background: rgba(31, 78, 121, 0.15);
 }
+
+/* ── IRIS Control Button ─────────────────────────────────────────────── */
+.iris-control-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+.iris-control-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.iris-ctrl-dot {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  transition: background 0.3s ease, opacity 0.3s ease;
+}
+.iris-ctrl-icon, .iris-ctrl-spinner { flex-shrink: 0; }
+.iris-ctrl-label { line-height: 1; }
+
+/* Idle */
+.iris-state-idle {
+  border-color: rgba(107, 230, 117, 0.22);
+  background: linear-gradient(135deg, rgba(107, 230, 117, 0.12), rgba(68, 176, 255, 0.08));
+  color: rgba(180, 220, 185, 0.85);
+}
+.iris-state-idle .iris-ctrl-dot { background: #6be675; opacity: 0.45; }
+.iris-state-idle:hover:not(:disabled) {
+  border-color: rgba(107, 230, 117, 0.42);
+  background: linear-gradient(135deg, rgba(107, 230, 117, 0.2), rgba(68, 176, 255, 0.14));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  color: #d4f5d7;
+}
+
+/* Starting / Warming */
+.iris-state-starting {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(249, 115, 22, 0.12));
+  color: rgba(253, 224, 140, 0.9);
+}
+.iris-state-starting .iris-ctrl-dot { background: #fbbf24; opacity: 1; animation: iris-dot-pulse 1s ease-in-out infinite; }
+.iris-ctrl-spinner { animation: iris-spin 1s linear infinite; color: #fbbf24; }
+
+/* Running */
+.iris-state-running {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(16, 185, 129, 0.12));
+  color: rgba(134, 239, 172, 0.95);
+}
+.iris-state-running .iris-ctrl-dot { background: #22c55e; opacity: 1; animation: iris-dot-pulse 2s ease-in-out infinite; }
+.iris-state-running:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.42);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(249, 115, 22, 0.12));
+  color: rgba(252, 165, 165, 0.95);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+.iris-state-running:hover:not(:disabled) .iris-ctrl-dot { background: #ef4444; }
+
+/* Stopping */
+.iris-state-stopping {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(251, 146, 60, 0.1));
+  color: rgba(253, 186, 116, 0.85);
+}
+.iris-state-stopping .iris-ctrl-dot { background: #fb923c; opacity: 1; animation: iris-dot-pulse 0.7s ease-in-out infinite; }
+
+/* Light theme */
+[data-theme="light"] .iris-state-idle { border-color: rgba(22,163,74,0.2); background: linear-gradient(135deg,rgba(22,163,74,0.1),rgba(16,185,129,0.07)); color:#166534; }
+[data-theme="light"] .iris-state-idle:hover:not(:disabled) { color:#14532d; border-color:rgba(22,163,74,0.4); }
+[data-theme="light"] .iris-state-starting { color:#92400e; border-color:rgba(217,119,6,0.3); background:linear-gradient(135deg,rgba(217,119,6,0.12),rgba(249,115,22,0.08)); }
+[data-theme="light"] .iris-state-running { color:#14532d; border-color:rgba(22,163,74,0.3); background:linear-gradient(135deg,rgba(22,163,74,0.12),rgba(16,185,129,0.08)); }
+[data-theme="light"] .iris-state-running:hover:not(:disabled) { color:#7f1d1d; border-color:rgba(185,28,28,0.3); background:linear-gradient(135deg,rgba(220,38,38,0.12),rgba(249,115,22,0.08)); }
+[data-theme="light"] .iris-state-stopping { color:#7c2d12; border-color:rgba(194,65,12,0.3); background:linear-gradient(135deg,rgba(220,38,38,0.1),rgba(234,88,12,0.08)); }
+
+@keyframes iris-spin { to { transform: rotate(360deg); } }
+@keyframes iris-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.75); }
+}
+/* ─────────────────────────────────────────────────────────────────────── */
 
 .toolbar-action {
   border: 1px solid rgba(107, 230, 117, 0.24);
