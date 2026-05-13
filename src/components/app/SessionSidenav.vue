@@ -21,7 +21,7 @@
         <div v-show="isCamerasOpen" class="session-sidenav-list">
           <div v-if="areIrisCamerasLoading && !hasIrisCameras" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            Detecting cameras...
+            Detecting camera...
           </div>
           <div v-else-if="irisCameraErrorMessage" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -29,7 +29,7 @@
           </div>
           <div v-else-if="!hasIrisCameras" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-            Connect supported camera.
+            Connect a camera
           </div>
           <template v-else>
             <button
