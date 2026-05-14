@@ -30,12 +30,12 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 let mainWindow;
 let mockTimer = null;
-const PROJECT_DIRECTORY_NAME = 'ReCapture Projects';
+const PARTICIPANT_DIRECTORY_NAME = 'ReCapture Participants';
 const PROJECT_EXTENSION = 'recapture.json';
 const PROJECT_MOTIONS_DIRECTORY_NAME = 'motions';
 const PROJECT_MODELS_DIRECTORY_NAME = 'models';
 const PRESET_STORE_FILENAME = 'project-presets.json';
-const UNTITLED_PROJECT_NAME = 'Untitled Project';
+const UNTITLED_PARTICIPANT_NAME = 'New Participant';
 
 function createAppEntityId(prefix) {
     try {
@@ -261,7 +261,7 @@ ipcMain.handle('preset-store-save', async (event, store) => {
  
 function getDefaultProjectsDir() {
     const documentsDir = app.getPath('documents');
-    const projectsDir = path.join(documentsDir, PROJECT_DIRECTORY_NAME);
+    const projectsDir = path.join(documentsDir, PARTICIPANT_DIRECTORY_NAME);
     if (!fs.existsSync(projectsDir)) {
         fs.mkdirSync(projectsDir, { recursive: true });
     }
@@ -270,7 +270,7 @@ function getDefaultProjectsDir() {
 
 function inferProjectNameFromPath(filePath) {
     if (!filePath) {
-        return UNTITLED_PROJECT_NAME;
+        return UNTITLED_PARTICIPANT_NAME;
     }
 
     return path.basename(filePath).replace(/\.json$/i, '').replace(/\.recapture$/i, '');
@@ -279,14 +279,14 @@ function inferProjectNameFromPath(filePath) {
 function resolveProjectName(projectName, filePath) {
     const trimmedName = typeof projectName === 'string' ? projectName.trim() : '';
 
-    if (!trimmedName || trimmedName === UNTITLED_PROJECT_NAME) {
+    if (!trimmedName || trimmedName === UNTITLED_PARTICIPANT_NAME) {
         return inferProjectNameFromPath(filePath);
     }
 
     return trimmedName;
 }
 
-function sanitizeProjectPathSegment(value, fallback = UNTITLED_PROJECT_NAME) {
+function sanitizeProjectPathSegment(value, fallback = UNTITLED_PARTICIPANT_NAME) {
     const cleaned = typeof value === 'string'
         ? value.replace(/[<>:"/\\|?*\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim()
         : '';
@@ -443,7 +443,7 @@ ipcMain.handle('project-create', async (event, projectData) => {
     const defaultDir = getDefaultProjectsDir();
     const defaultName = sanitizeProjectPathSegment(resolveProjectName(projectData?.name, null));
     const result = await dialog.showSaveDialog(getEventWindow(event), {
-        title: 'Create Project',
+        title: 'New Participant',
         buttonLabel: 'Create',
         defaultPath: path.join(defaultDir, defaultName),
         properties: ['showOverwriteConfirmation'],
@@ -474,10 +474,10 @@ ipcMain.handle('project-open', async (event, filePath) => {
 
     if (!targetPath) {
         const result = await dialog.showOpenDialog(getEventWindow(event), {
-            title: 'Open Project',
+            title: 'Open Participant',
             properties: ['openFile'],
             defaultPath: getDefaultProjectsDir(),
-            filters: [{ name: 'ReCapture Project', extensions: ['json'] }],
+            filters: [{ name: 'ReCapture Participant', extensions: ['json'] }],
         });
 
         if (result.canceled || result.filePaths.length === 0) {

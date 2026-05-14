@@ -17,8 +17,8 @@
             </svg>
           </div>
           <div class="card-text">
-            <h3>New Project</h3>
-            <p>Create a fresh tracking workspace</p>
+            <h3>New Participant</h3>
+            <p>Create a new participant record</p>
           </div>
         </button>
 
@@ -29,14 +29,14 @@
             </svg>
           </div>
           <div class="card-text">
-            <h3>Open Existing</h3>
-            <p>Browse for an existing project file</p>
+            <h3>Load Participant</h3>
+            <p>Open an existing participant record</p>
           </div>
         </button>
       </div>
 
       <div class="recent-projects">
-        <h2 class="section-title">Recent Projects</h2>
+        <h2 class="section-title">Recent Participants</h2>
 
         <div v-if="recentProjects.length > 0" class="recent-list">
           <button
@@ -56,7 +56,7 @@
         </div>
 
         <div v-else class="empty-state">
-          No recent projects found.
+          No recent participants found.
         </div>
       </div>
 
