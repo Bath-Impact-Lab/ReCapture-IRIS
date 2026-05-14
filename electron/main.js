@@ -444,16 +444,22 @@ ipcMain.handle('project-create', async (event, projectData) => {
     const defaultName = sanitizeProjectPathSegment(resolveProjectName(projectData?.name, null));
     const result = await dialog.showSaveDialog(getEventWindow(event), {
         title: 'Create Project',
-        defaultPath: path.join(defaultDir, `${defaultName}.${PROJECT_EXTENSION}`),
-        filters: [{ name: 'ReCapture Project', extensions: ['json'] }],
+        buttonLabel: 'Create',
+        defaultPath: path.join(defaultDir, defaultName),
+        properties: ['showOverwriteConfirmation'],
     });
 
     if (result.canceled || !result.filePath) {
         return { ok: false, canceled: true };
     }
 
+    // Strip any extension the OS dialog may have appended, so the result is
+    // treated as a bare project name (the actual .recapture.json file is
+    // created inside a sub-folder by resolveCreatedProjectFilePath).
+    const cleanedPath = result.filePath.replace(/(\.(recapture)?)?(\.json)?$/i, '');
+
     try {
-        const targetPath = resolveCreatedProjectFilePath(result.filePath, projectData?.name);
+        const targetPath = resolveCreatedProjectFilePath(cleanedPath, projectData?.name);
         const payload = ensureProjectPayload(projectData, targetPath, { touch: true });
         ensureProjectDirectories(targetPath);
         fs.writeFileSync(targetPath, JSON.stringify(payload, null, 2), 'utf8');

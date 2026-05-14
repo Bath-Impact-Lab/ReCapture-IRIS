@@ -888,6 +888,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         @run-session-opensim-ik="handleRunSessionOpenSimIk($event.participantId, $event.sessionId)"
         @link-recordings="handleLinkRecordings($event.participantId, $event.sessionId)"
         @resize-sidebar="handleResizeSessionSidenav"
+        @close-project="setCurrentProject(null)"
       />
 
       <main class="workspace-content">

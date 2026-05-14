@@ -2,6 +2,13 @@
   <aside class="session-sidenav">
 
     <div class="session-sidenav-scroll-area">
+      <button class="close-project-btn" type="button" @click="emit('close-project')" title="Close project and return home">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Projects
+      </button>
+
       <div class="session-sidenav-section">
         <button
           class="dropdown-toggle"
@@ -228,6 +235,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
+  'close-project': [];
   'open-capture': [];
   'open-analysis': [];
   'open-mocap': [];
@@ -508,7 +516,39 @@ function stopResize() {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 20px 12px;
+  padding: 8px 12px 20px;
+}
+
+.close-project-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--sidenav-muted, rgba(160, 180, 200, 0.6));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.18s ease, background 0.18s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.close-project-btn:hover {
+  color: var(--sidenav-fg, #e8f0f9);
+  background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
+}
+
+[data-theme="light"] .close-project-btn {
+  color: rgba(80, 110, 140, 0.65);
+}
+
+[data-theme="light"] .close-project-btn:hover {
+  color: #1a3a5c;
+  background: rgba(31, 78, 121, 0.07);
 }
 
 .session-sidenav-scroll-area::-webkit-scrollbar {
