@@ -515,3 +515,4 @@ ipcMain.handle('project-prune-recents', async (_event, entries) => {
     }
 });
  
+

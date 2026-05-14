@@ -112,6 +112,13 @@ const isCaptureIrisRunning = computed(() =>
 const isMocapIrisRunning = computed(() =>
   isIrisRunning.value && irisRunMode.value === 'mocap'
 );
+const canStartIris = computed(() =>
+  availableIrisCameras.value.length > 0
+  && !isStartingIris.value
+  && !isStoppingIris.value
+  && !isCaptureIrisRunning.value
+  && !isMocapIrisRunning.value
+);
 const canStartCaptureIris = computed(() =>
   availableIrisCameras.value.length > 0
   && !isStartingIris.value
@@ -869,6 +876,8 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :width="sessionSidenavWidth"
         :modeSwitchDisabled="isIrisRunning"
         :selectedCameraIds="selectedCameraIds"
+        :current-project-path="currentProject?.path"
+        :current-name="currentProject?.name"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"
@@ -894,11 +903,12 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
-              :is-iris-running="isCaptureIrisRunning"
+              :is-iris-running="isIrisRunning"
               :is-recording="isRecording"
-              :start-disabled="!canStartCaptureIris"
+              :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
               :record-disabled="!canToggleRecording"
+              :current-screen="activeView"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
@@ -925,11 +935,12 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
-              :is-iris-running="isMocapIrisRunning"
+              :is-iris-running="isIrisRunning"
               :is-recording="isRecording"
-              :start-disabled="!canStartMocapIris"
+              :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
               :record-disabled="!canToggleRecording"
+              :current-screen="activeView"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
@@ -993,8 +1004,8 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
 .mocap-toolbar-shell {
   position: absolute;
   top: 16px;
-  left: 16px;
-  right: 16px;
+  left: 24px;
+  right: 24px;
   z-index: 20;
   display: flex;
   justify-content: flex-start;

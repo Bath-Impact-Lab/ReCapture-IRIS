@@ -346,9 +346,9 @@ export function useSceneCameras(selectedCount?: Ref<number>, showFrustums?: Ref<
   /** Remove all scene camera objects and clear the list. */
   function clearSceneCameras() {
     for (const entry of sceneCameras.value) {
-      attachedScene?.remove(entry.gizmoMesh);
-      attachedScene?.remove(entry.camera);
-      attachedScene?.remove(entry.frustumLines);
+      entry.gizmoMesh.removeFromParent();
+      entry.camera.removeFromParent();
+      entry.frustumLines.removeFromParent();
       entry.gizmoMesh.traverse((child) => {
         if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
         if ((child as THREE.Mesh).material) ((child as THREE.Mesh).material as THREE.Material).dispose();

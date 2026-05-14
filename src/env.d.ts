@@ -86,5 +86,6 @@ interface Window {
     presetStoreSave: (store: any) => Promise<{ ok: boolean; error?: string; store?: any }>;
     augmentMarkers: (posesPath: string, outputDir?: string) => Promise<{ ok: boolean; outputPath?: string; dims?: number[]; error?: string }>;
 
+    openRecordings: (path: string) => boolean;
   }
 } 

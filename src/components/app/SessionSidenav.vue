@@ -94,6 +94,14 @@
           No sessions yet.
         </div>
       </div>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <button
+          @click="openRecordings"
+          class="open-recordings"
+        >  
+          Open Recordings
+        </button>
+      </div>
     </div>
 
     <div class="session-sidenav-fixed-bottom">
@@ -109,7 +117,7 @@
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="5" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="19"></line><line x1="5" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="19" y2="12"></line></svg>
-            Mocap Mode
+            Mocap View
           </button>
         </div>
         <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('capture')">
@@ -121,7 +129,7 @@
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
-            Capture Mode
+            Capture View
           </button>
         </div>
         <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('analysis')">
@@ -133,7 +141,7 @@
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            Analysis Mode
+            Analysis View
           </button>
         </div>
       </div>
@@ -209,6 +217,7 @@ interface Props {
   width?: number;
   modeSwitchDisabled?: boolean;
   selectedCameraIds?: string[];
+  currentProjectPath: string | null | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -368,6 +377,12 @@ function recordSessionFromMenu() {
     sessionId: sessionMenu.value.sessionId,
   });
   closeSessionMenu();
+}
+
+function openRecordings() {
+  let exists: boolean | undefined;
+  if (props.currentProjectPath) exists = window.ipc?.openRecordings(props.currentProjectPath)
+  if (exists) console.log("doesn't exist yet")
 }
 
 function recordMotionFromMenu() {
@@ -609,7 +624,7 @@ function stopResize() {
 
 .session-sidenav-link {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: 10px;
   width: 100%;
   padding: 8px 12px;
@@ -874,9 +889,24 @@ function stopResize() {
   .session-sidenav {
     display: none;
   }
-
+  
   .session-sidenav-resizer {
     display: none;
   }
+}
+
+.open-recordings {
+  background: var(--bg-elev);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--sidenav-link, #4b5563);
+  border-radius: 8px;
+  border: 1px solid rgba(107, 230, 117, 0.25);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.open-recordings:hover {
+  background-color: var(--bg);
 }
 </style>

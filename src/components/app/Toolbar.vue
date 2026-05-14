@@ -51,9 +51,9 @@
         >
           <option :value="15">15</option>
           <option :value="30">30</option>
-          <option :value="60">60</option>
-          <option :value="100">100</option>
-          <option :value="120">120</option>
+          <option v-if="currentScreen === 'capture'" :value="60">60</option>
+          <option v-if="currentScreen === 'capture'" :value="100">100</option>
+          <option v-if="currentScreen === 'capture'" :value="120">120</option>
         </select>
         <svg class="select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"></polyline>
@@ -205,6 +205,7 @@ interface Props {
   startDisabled?: boolean;
   stopDisabled?: boolean;
   recordDisabled?: boolean;
+  currentScreen?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -222,6 +223,7 @@ const props = withDefaults(defineProps<Props>(), {
   startDisabled: false,
   stopDisabled: false,
   recordDisabled: false,
+  currentScreen: "",
 });
 
 const emit = defineEmits<{
