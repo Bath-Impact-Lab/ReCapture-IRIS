@@ -576,10 +576,10 @@ function handleSavePresetChanges() {
   settings()
 }
 
-async function handleLicenseSubmit() {
-  await validateLicense(licenseKeyInput.value);
-  emit('licenseKey', licenseKeyInput.value)
-}
+// async function handleLicenseSubmit() {
+//   await validateLicense(licenseKeyInput.value);
+//   emit('licenseKey', licenseKeyInput.value)
+// }
 
 async function buyLicense() {
   const url = import.meta.env.VITE_LICENSE_URL || 'https://embodi.ecolizard.com/#pricing';

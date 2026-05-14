@@ -381,7 +381,9 @@ function recordSessionFromMenu() {
 }
 
 function openRecordings() {
-  if(props.currentProjectPath && props.currentName) window.ipc?.openRecordings(props.currentProjectPath, props.currentName)
+  let exists: boolean | undefined;
+  if (props.currentProjectPath && props.currentName) exists = window.ipc?.openRecordings(props.currentProjectPath, props.currentName)
+  if (exists) console.log("doesn't exist yet")
 }
 
 function recordMotionFromMenu() {
