@@ -624,9 +624,8 @@ function stopResize() {
 
 .session-sidenav-link {
   display: flex;
-  flex-direction: column;
   align-items: start;
-  gap: 5px;
+  gap: 10px;
   width: 100%;
   padding: 8px 12px;
   border: 0;

@@ -49,11 +49,11 @@
           v-model="selectedFps"
           @change="emit('update:fps', selectedFps)"
         >
-          <option :value="15">15 fps</option>
-          <option :value="30">30 fps</option>
-          <option v-if="currentScreen === 'capture'" :value="60">60 fps</option>
-          <option v-if="currentScreen === 'capture'" :value="100">100 fps</option>
-          <option v-if="currentScreen === 'capture'" :value="120">120 fps</option>
+          <option :value="15">15</option>
+          <option :value="30">30</option>
+          <option v-if="currentScreen === 'capture'" :value="60">60</option>
+          <option v-if="currentScreen === 'capture'" :value="100">100</option>
+          <option v-if="currentScreen === 'capture'" :value="120">120</option>
         </select>
         <svg class="select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"></polyline>
