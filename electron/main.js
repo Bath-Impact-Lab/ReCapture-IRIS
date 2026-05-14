@@ -1,7 +1,7 @@
 
 const dotenv = require('dotenv');
 
-const { app, shell, BrowserWindow, ipcMain, nativeTheme, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, dialog } = require('electron');
 
 // 1. Force Hardware Acceleration and bypass Chromium's GPU blocklist
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
@@ -516,14 +516,3 @@ ipcMain.handle('project-prune-recents', async (_event, entries) => {
 });
  
 
-ipcMain.handle('open-recordings', (event, recordingPath, name) => {
-    const recPath = path.join(recordingPath, "..", "recordings", name)
-    const check =  fs.existsSync(recPath)
-    if (check) {
-        shell.openPath(recPath)
-        return true
-    }
-    else {
-        return false
-    }
-})

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path'); // Ensure path is imported
-const { dialog, ipcMain } = require('electron');
+const { dialog, ipcMain, shell } = require('electron');
 const { getDa3StartupCalibrationOutputDir, getIrisCliPath } = require('./config');
 const { ProcessManager } = require('./processManager');
 const { MonitorManager } = require('./monitorManager');
@@ -571,7 +571,20 @@ function registerIrisIpc() {
     }
   });
  
+  ipcMain.handle('open-recordings', (event, recordingPath) => {
+      const recPath = getProjectMotionsDir(recordingPath)
+      const check =  fs.existsSync(recPath)
+      console.log(recPath)
+      if (check) {
+          shell.openPath(recPath)
+          return true
+      }
+      else {
+          return false
+      }
+  })
 }
+
 
 module.exports = {
   registerIrisIpc,

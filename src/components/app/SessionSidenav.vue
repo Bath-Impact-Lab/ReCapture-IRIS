@@ -218,7 +218,6 @@ interface Props {
   modeSwitchDisabled?: boolean;
   selectedCameraIds?: string[];
   currentProjectPath: string | null | undefined;
-  currentName: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -382,7 +381,7 @@ function recordSessionFromMenu() {
 
 function openRecordings() {
   let exists: boolean | undefined;
-  if (props.currentProjectPath && props.currentName) exists = window.ipc?.openRecordings(props.currentProjectPath, props.currentName)
+  if (props.currentProjectPath) exists = window.ipc?.openRecordings(props.currentProjectPath)
   if (exists) console.log("doesn't exist yet")
 }
 
