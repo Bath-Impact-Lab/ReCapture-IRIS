@@ -2,6 +2,13 @@
   <aside class="session-sidenav">
 
     <div class="session-sidenav-scroll-area">
+      <button class="close-project-btn" type="button" @click="emit('close-project')" title="Close project and return home">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Participants
+      </button>
+
       <div class="session-sidenav-section">
         <button
           class="dropdown-toggle"
@@ -9,7 +16,7 @@
           type="button"
           aria-label="Toggle Connected Cameras"
         >
-          <h2 class="session-sidenav-title">Connected Cameras</h2>
+          <h2 class="session-sidenav-title">Cameras</h2>
           <svg
             xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             class="chevron" :class="{ 'open': isCamerasOpen }"
@@ -19,14 +26,17 @@
         </button>
 
         <div v-show="isCamerasOpen" class="session-sidenav-list">
-          <div v-if="areIrisCamerasLoading && !hasIrisCameras" class="session-sidenav-empty-state">
-            Loading IRIS cameras...
+          <div v-if="areIrisCamerasLoading && !hasIrisCameras" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            Detecting camera...
           </div>
-          <div v-else-if="irisCameraErrorMessage" class="session-sidenav-empty-state">
+          <div v-else-if="irisCameraErrorMessage" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             {{ irisCameraErrorMessage }}
           </div>
-          <div v-else-if="!hasIrisCameras" class="session-sidenav-empty-state">
-            No IRIS cameras detected.
+          <div v-else-if="!hasIrisCameras" class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            Connect a camera
           </div>
           <template v-else>
             <button
@@ -86,9 +96,18 @@
             </div>
           </button>
         </div>
-        <div v-else class="session-sidenav-empty-state">
+        <div v-else class="session-sidenav-empty-state session-sidenav-empty-state--camera">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           No sessions yet.
         </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <button
+          @click="openRecordings"
+          class="open-recordings"
+        >  
+          Open Recordings
+        </button>
       </div>
     </div>
 
@@ -105,7 +124,7 @@
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="5" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="19"></line><line x1="5" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="19" y2="12"></line></svg>
-            Mocap Mode
+            Mocap View
           </button>
         </div>
         <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('capture')">
@@ -117,7 +136,7 @@
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
-            Capture Mode
+            Capture View
           </button>
         </div>
         <div class="session-sidenav-action-wrapper" :title="modeSwitchTitle('analysis')">
@@ -129,7 +148,7 @@
             type="button"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            Analysis Mode
+            Analysis View
           </button>
         </div>
       </div>
@@ -205,6 +224,7 @@ interface Props {
   width?: number;
   modeSwitchDisabled?: boolean;
   selectedCameraIds?: string[];
+  currentProjectPath: string | null | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -215,6 +235,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
+  'close-project': [];
   'open-capture': [];
   'open-analysis': [];
   'open-mocap': [];
@@ -366,6 +387,12 @@ function recordSessionFromMenu() {
   closeSessionMenu();
 }
 
+function openRecordings() {
+  let exists: boolean | undefined;
+  if (props.currentProjectPath) exists = window.ipc?.openRecordings(props.currentProjectPath)
+  if (exists) console.log("doesn't exist yet")
+}
+
 function recordMotionFromMenu() {
   if (!canRecordMotion.value) return;
 
@@ -489,7 +516,39 @@ function stopResize() {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 20px 12px;
+  padding: 8px 12px 20px;
+}
+
+.close-project-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--sidenav-muted, rgba(160, 180, 200, 0.6));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.18s ease, background 0.18s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.close-project-btn:hover {
+  color: var(--sidenav-fg, #e8f0f9);
+  background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
+}
+
+[data-theme="light"] .close-project-btn {
+  color: rgba(80, 110, 140, 0.65);
+}
+
+[data-theme="light"] .close-project-btn:hover {
+  color: #1a3a5c;
+  background: rgba(31, 78, 121, 0.07);
 }
 
 .session-sidenav-scroll-area::-webkit-scrollbar {
@@ -538,6 +597,18 @@ function stopResize() {
 [data-theme="light"] .session-sidenav-empty-state {
   background: rgba(31, 78, 121, 0.04);
 }
+
+.session-sidenav-empty-state--camera {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-state-icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
 
 /* Dropdown Toggle Styles */
 .dropdown-toggle {
@@ -593,7 +664,7 @@ function stopResize() {
 
 .session-sidenav-link {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: 10px;
   width: 100%;
   padding: 8px 12px;
@@ -858,9 +929,24 @@ function stopResize() {
   .session-sidenav {
     display: none;
   }
-
+  
   .session-sidenav-resizer {
     display: none;
   }
+}
+
+.open-recordings {
+  background: var(--bg-elev);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--sidenav-link, #4b5563);
+  border-radius: 8px;
+  border: 1px solid rgba(107, 230, 117, 0.25);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.open-recordings:hover {
+  background-color: var(--bg);
 }
 </style>

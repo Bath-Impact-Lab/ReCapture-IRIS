@@ -5,7 +5,6 @@
       <header class="home-header">
         <h1 class="home-title">Welcome to ReCapture</h1>
         <p class="home-subtitle">Select an option to begin your biomechanics session.</p>
-        <button class="quick-demo-button" @click="emit('quick-demo')">Quick Demo</button>
       </header>
 
       <div class="action-cards">
@@ -18,8 +17,8 @@
             </svg>
           </div>
           <div class="card-text">
-            <h3>New Project</h3>
-            <p>Create a fresh tracking workspace</p>
+            <h3>New Participant</h3>
+            <p>Create a new participant record</p>
           </div>
         </button>
 
@@ -30,14 +29,14 @@
             </svg>
           </div>
           <div class="card-text">
-            <h3>Open Existing</h3>
-            <p>Browse for an existing project file</p>
+            <h3>Load Participant</h3>
+            <p>Open an existing participant record</p>
           </div>
         </button>
       </div>
 
       <div class="recent-projects">
-        <h2 class="section-title">Recent Projects</h2>
+        <h2 class="section-title">Recent Participants</h2>
 
         <div v-if="recentProjects.length > 0" class="recent-list">
           <button
@@ -57,7 +56,7 @@
         </div>
 
         <div v-else class="empty-state">
-          No recent projects found.
+          No recent participants found.
         </div>
       </div>
 
@@ -78,7 +77,6 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  'quick-demo': [];
   'new-project': [];
   'open-project': [];
   'open-recent': [path: string];
@@ -208,35 +206,6 @@ function formatRecentDate(value: string) {
   max-width: 540px;
 }
 
-.quick-demo-button {
-  margin-top: 22px;
-  padding: 12px 22px;
-  border: 1px solid rgba(31, 126, 215, 0.33);
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(31, 126, 215, 0.2), rgba(75, 163, 234, 0.12));
-  color: var(--home-ink);
-  font-size: 0.92rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
-}
-
-.quick-demo-button:hover {
-  transform: translateY(-2px);
-  border-color: rgba(31, 126, 215, 0.56);
-  background: linear-gradient(135deg, rgba(31, 126, 215, 0.26), rgba(75, 163, 234, 0.16));
-  box-shadow: 0 14px 28px rgba(13, 54, 88, 0.24);
-}
-
-.quick-demo-button:active {
-  transform: translateY(0);
-}
-
-[data-theme="light"] .quick-demo-button {
-  background: linear-gradient(135deg, rgba(31, 126, 215, 0.18), rgba(85, 170, 237, 0.12));
-  border-color: rgba(22, 82, 136, 0.24);
-}
 
 /* Action Cards */
 .action-cards {

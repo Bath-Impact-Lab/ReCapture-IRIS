@@ -42,6 +42,7 @@
   --close-btn-hover: #fff;
   --theme-toggle-track: rgba(255, 255, 255, 0.12);
   --theme-toggle-thumb: #e6edf3;
+  --sidenav-action-hover: #ffffff;
 }
 
 /* ── Light mode ── */
@@ -84,6 +85,7 @@
   --close-btn-hover: #1F4E79;
   --theme-toggle-track: rgba(31, 78, 121, .15);
   --theme-toggle-thumb: #1F4E79;
+  --sidenav-action-hover: #111827;
 }
 
 * {

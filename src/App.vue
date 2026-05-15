@@ -18,7 +18,10 @@ import AnalysisWindow from '@/components/analysisWindow.vue';
 // ── Modals & Overlays ────────────────────────────────────────────────────────
 import SettingsModal from '@/components/settingsModal.vue';
 
-const { 
+declare const __APP_VERSION__: string;
+const appVersion = __APP_VERSION__;
+
+const {
   hasCurrentProject, 
   currentProject, 
   recentProjects,
@@ -108,6 +111,13 @@ const isCaptureIrisRunning = computed(() =>
 );
 const isMocapIrisRunning = computed(() =>
   isIrisRunning.value && irisRunMode.value === 'mocap'
+);
+const canStartIris = computed(() =>
+  availableIrisCameras.value.length > 0
+  && !isStartingIris.value
+  && !isStoppingIris.value
+  && !isCaptureIrisRunning.value
+  && !isMocapIrisRunning.value
 );
 const canStartCaptureIris = computed(() =>
   availableIrisCameras.value.length > 0
@@ -845,7 +855,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
   <div id="app-container" :data-theme="currentTheme" :style="appContainerStyle">
     
     <AppTopBar 
-      appTitle="ReCapture" 
+      :appTitle="`ReCapture v${appVersion}`"
       :homeDisabled="!hasCurrentProject"
       @toggle-settings="showSettings = !showSettings" 
       @navigate-home="setCurrentProject(null)"
@@ -866,6 +876,8 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :width="sessionSidenavWidth"
         :modeSwitchDisabled="isIrisRunning"
         :selectedCameraIds="selectedCameraIds"
+        :current-project-path="currentProject?.path"
+        :current-name="currentProject?.name"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"
@@ -876,6 +888,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         @run-session-opensim-ik="handleRunSessionOpenSimIk($event.participantId, $event.sessionId)"
         @link-recordings="handleLinkRecordings($event.participantId, $event.sessionId)"
         @resize-sidebar="handleResizeSessionSidenav"
+        @close-project="setCurrentProject(null)"
       />
 
       <main class="workspace-content">
@@ -891,11 +904,12 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
-              :is-iris-running="isCaptureIrisRunning"
+              :is-iris-running="isIrisRunning"
               :is-recording="isRecording"
-              :start-disabled="!canStartCaptureIris"
+              :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
               :record-disabled="!canToggleRecording"
+              :current-screen="activeView"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
@@ -922,11 +936,12 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
-              :is-iris-running="isMocapIrisRunning"
+              :is-iris-running="isIrisRunning"
               :is-recording="isRecording"
-              :start-disabled="!canStartMocapIris"
+              :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
               :record-disabled="!canToggleRecording"
+              :current-screen="activeView"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
@@ -990,8 +1005,8 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
 .mocap-toolbar-shell {
   position: absolute;
   top: 16px;
-  left: 16px;
-  right: 16px;
+  left: 24px;
+  right: 24px;
   z-index: 20;
   display: flex;
   justify-content: flex-start;

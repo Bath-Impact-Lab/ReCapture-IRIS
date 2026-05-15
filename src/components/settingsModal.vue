@@ -30,12 +30,11 @@
             <div class="preset-layout">
               <aside class="preset-pane preset-pane-left">
                 <div class="pane-header">
-                  <h3 class="pane-title">Project Presets</h3>
+                  <h3 class="pane-title">Current Project Preset</h3>
                   <p class="pane-subtitle">Presets are stored locally and can be reused across projects.</p>
                 </div>
 
                 <div v-if="props.hasCurrentProject" class="field-group">
-                  <label class="field-label">Current project preset</label>
                   <select :value="projectPresetDraft ?? ''" class="settings-select" @change="handleProjectPresetChange">
                     <option value="">Use app default</option>
                     <option v-for="preset in presetDraft.presets" :key="preset.id" :value="preset.id">
@@ -97,7 +96,7 @@
                     </div>
 
                     <div class="menu-wrap" @click.stop>
-                      <button class="btn-icon" type="button" @click="togglePresetMenu(preset.id)">•••</button>
+                      <button class="btn-secondary" type="button" @click="togglePresetMenu(preset.id)">•••</button>
                       <div v-if="openPresetMenuId === preset.id" class="menu-popover">
                         <button type="button" @click="renamePresetFromList(preset.id)">Rename</button>
                         <button type="button" @click="duplicatePreset(preset.id)">Duplicate</button>
@@ -147,9 +146,9 @@
                       <button class="btn-secondary" type="button" :disabled="isDefaultPreset(selectedPreset.id)" @click="setDefaultPreset(selectedPreset.id)">
                         Set as default
                       </button>
-                      <div class="menu-wrap">
-                        <button class="btn-icon" type="button" @click="togglePresetMenu(selectedPreset.id)">•••</button>
-                        <div v-if="openPresetMenuId === selectedPreset.id" class="menu-popover menu-popover-right">
+                      <div class="menu-wrap" @click.stop>
+                        <button class="btn-secondary" type="button" @click="togglePane(selectedPreset.id)">•••</button>
+                        <div v-if="openPane.open && selectedPresetId === openPane.id" class="menu-popover menu-popover-right">
                           <button
                             type="button"
                             class="danger"
@@ -191,9 +190,9 @@
                           class="settings-input template-name-input"
                           placeholder="Template name"
                         />
-                        <div class="menu-wrap">
-                          <button class="btn-icon" type="button" @click="toggleTemplateMenu(template.id)">•••</button>
-                          <div v-if="openTemplateMenuId === template.id" class="menu-popover menu-popover-right">
+                        <div class="menu-wrap" @click.stop>
+                          <button class="btn-secondary" type="button" @click="toggleTemplate(template.id)">•••</button>
+                          <div v-if="openTemplate.open && template.id === openTemplate.id" class="menu-popover menu-popover-right">
                             <button type="button" :disabled="templateIndex === 0" @click="moveTemplate(templateIndex, -1)">Move up</button>
                             <button type="button" :disabled="templateIndex === selectedPreset.templates.length - 1" @click="moveTemplate(templateIndex, 1)">Move down</button>
                             <button type="button" class="danger" @click="deleteTemplate(templateIndex)">Delete</button>
@@ -273,7 +272,9 @@ const createPresetName = ref('');
 const createPresetDuplicateSelected = ref(true);
 
 const openPresetMenuId = ref<string | null>(null);
+const openPane = ref<{open: boolean, id: string | null}>({open: false, id: null})
 const openTemplateMenuId = ref<string | null>(null);
+const openTemplate = ref<{open: boolean, id: string | null}>({open: false, id: null})
 const isRenamingSelected = ref(false);
 const renameDraft = ref('');
 
@@ -318,6 +319,8 @@ function resetLocalStateFromProps() {
   renameDraft.value = '';
   openPresetMenuId.value = null;
   openTemplateMenuId.value = null;
+  openPane.value = {open: false, id: null};
+  openTemplate.value = {open: false, id: null};
   ensureSelectedPreset();
 }
 
@@ -344,6 +347,8 @@ watch(() => props.currentProjectPresetId, (value) => {
 function closeMenus() {
   openPresetMenuId.value = null;
   openTemplateMenuId.value = null;
+  openPane.value = {open: false, id: null};
+  openTemplate.value = {open: false, id: null};
 }
 
 onMounted(() => {
@@ -504,12 +509,38 @@ function deleteTemplate(templateIndex: number) {
 
 function togglePresetMenu(presetId: string) {
   openTemplateMenuId.value = null;
+  openPane.value = {open: false, id: null};
   openPresetMenuId.value = openPresetMenuId.value === presetId ? null : presetId;
 }
 
-function toggleTemplateMenu(templateId: string) {
+function togglePane(presetId: string) {
+  openTemplate.value = {open: false, id: null}
   openPresetMenuId.value = null;
-  openTemplateMenuId.value = openTemplateMenuId.value === templateId ? null : templateId;
+  if (presetId === openPane.value.id && openPane.value.open) {
+    openPane.value = {open: false, id: null}
+  }
+  else if (presetId !== openPane.value.id && openPane.value.open) {
+    openPane.value = {open: true, id: presetId}
+  }
+  else {
+    openPane.value = {open: true, id: presetId}
+  }
+}
+
+
+function toggleTemplate(templateId: string) {
+  openPane.value = {open: false, id: null};
+  openPresetMenuId.value = null;
+  if (templateId === openTemplate.value.id && openTemplate.value.open) {
+    openTemplate.value = {open: false, id: null}
+  }
+  else if (templateId !== openTemplate.value.id && openTemplate.value.open) {
+    openTemplate.value = {open: true, id: templateId}
+  }
+  else {
+    openTemplate.value = {open: true, id: templateId}
+  }
+
 }
 
 function handleProjectPresetChange(event: Event) {
@@ -542,6 +573,23 @@ function handleSavePresetChanges() {
     store: normalized,
     projectPresetId: projectPresetDraft.value,
   });
+  settings()
+}
+
+// async function handleLicenseSubmit() {
+//   await validateLicense(licenseKeyInput.value);
+//   emit('licenseKey', licenseKeyInput.value)
+// }
+
+async function buyLicense() {
+  const url = import.meta.env.VITE_LICENSE_URL || 'https://embodi.ecolizard.com/#pricing';
+  if (!(window as any).electronAPI?.openExternal) return;
+
+  try {
+    await (window as any).electronAPI.openExternal(url);
+  } catch {
+    // Ignore open failures; UI already communicates action intent.
+  }
 }
 </script>
 

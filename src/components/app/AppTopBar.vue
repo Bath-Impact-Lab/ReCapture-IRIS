@@ -69,7 +69,7 @@ const emit = defineEmits<{
 }>();
 
 const logoError = ref(false);
-const logoSrc = computed(() => `/assets/logo/${props.appTitle.toLowerCase()}.png`);
+const logoSrc = computed(() => `/assets/logo/${props.appTitle.split(' ')[0].toLowerCase()}.png`);
 const isMaximized = ref(false);
 const showWindowControls = typeof window !== 'undefined' && !!window.electronAPI?.minimizeWindow;
 const titlebarRef = ref<HTMLElement | null>(null);
@@ -174,8 +174,7 @@ function handleTitlebarDoubleClick(event: MouseEvent) {
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: var(--fg) !important; /* Force to override global style.css definitions */
-  text-transform: uppercase;
+  color: var(--fg) !important;
   opacity: 0.9;
 }
 
