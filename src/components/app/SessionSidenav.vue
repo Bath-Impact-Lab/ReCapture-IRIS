@@ -102,7 +102,12 @@
               ></span>
               <div class="session-meta">
                 <span class="session-name">{{ session.name }}</span>
-                <span class="session-date">{{ formatSessionDate(session.date) }}</span>
+                <span
+                  v-if="shouldShowSessionTime(participant.id, session)"
+                  class="session-time"
+                >
+                  {{ sessionTimeLabel(participant.id, session) }}
+                </span>
               </div>
             </div>
             <button
@@ -202,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useIris, type IrisCamera } from '@/lib/useIris';
 import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
 
@@ -261,29 +266,86 @@ const irisCameraErrorMessage = computed(() =>
   irisCamerasError.value ? 'Unable to load IRIS cameras.' : ''
 );
 const isResizing = ref(false);
+const recordingStartedAt = ref<number | null>(null);
+const recordingNow = ref(Date.now());
+let recordingTimer: ReturnType<typeof window.setInterval> | null = null;
 const selectedCameraCount = computed(() =>
   irisCameras.value.filter((camera) => camera.success && isCameraSelected(camera.id)).length
 );
 
 onBeforeUnmount(() => {
+  stopRecordingTimer();
   stopResize();
 });
 
-function formatSessionDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+watch(
+  () => [props.isRecording, props.recordingParticipantId, props.recordingSessionId] as const,
+  ([isRecording, participantId, sessionId]) => {
+    if (isRecording && participantId && sessionId) {
+      recordingStartedAt.value = Date.now();
+      startRecordingTimer();
+      return;
+    }
 
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+    recordingStartedAt.value = null;
+    recordingNow.value = Date.now();
+    stopRecordingTimer();
+  },
+  { immediate: true },
+);
+
+function startRecordingTimer() {
+  recordingNow.value = Date.now();
+  if (recordingTimer !== null) return;
+  recordingTimer = window.setInterval(() => {
+    recordingNow.value = Date.now();
+  }, 1000);
+}
+
+function stopRecordingTimer() {
+  if (recordingTimer === null) return;
+  window.clearInterval(recordingTimer);
+  recordingTimer = null;
+}
+
+function formatElapsedTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function hasSessionRecording(session: ProjectSession | null | undefined) {
   return !!session && typeof session.recordingPath === 'string' && session.recordingPath.trim().length > 0;
+}
+
+function hasRecordedDuration(session: ProjectSession | null | undefined) {
+  return !!session
+    && typeof session.recordingDurationSeconds === 'number'
+    && Number.isFinite(session.recordingDurationSeconds)
+    && session.recordingDurationSeconds >= 0;
+}
+
+function shouldShowSessionTime(participantId: string, session: ProjectSession) {
+  return isActiveSessionRecording(participantId, session.id) || hasRecordedDuration(session);
+}
+
+function sessionTimeLabel(participantId: string, session: ProjectSession) {
+  if (isActiveSessionRecording(participantId, session.id) && recordingStartedAt.value !== null) {
+    return formatElapsedTime(Math.floor((recordingNow.value - recordingStartedAt.value) / 1000));
+  }
+
+  if (hasRecordedDuration(session)) {
+    return formatElapsedTime(Math.floor(session.recordingDurationSeconds!));
+  }
+
+  return '';
 }
 
 function isActiveSessionRecording(participantId: string, sessionId: string) {
@@ -647,7 +709,7 @@ function stopResize() {
 }
 
 .session-name,
-.session-date {
+.session-time {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -656,9 +718,10 @@ function stopResize() {
   font-size: 0.9rem;
 }
 
-.session-date {
+.session-time {
   font-size: 0.75rem;
   color: var(--muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
 }
 
 .session-trial-link {

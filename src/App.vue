@@ -60,7 +60,12 @@ const isRecording = ref(false);
 const isRecordingBusy = ref(false);
 const selectedRecordMode = ref<'plain' | 'augment'>('plain');
 const activeRecordMode = ref<'plain' | 'augment'>('plain');
-const activeSessionRecordingTarget = ref<{ participantId: string; sessionId: string; outputDir?: string } | null>(null);
+const activeSessionRecordingTarget = ref<{
+  participantId: string;
+  sessionId: string;
+  outputDir?: string;
+  startedAt: number;
+} | null>(null);
 const PROJECT_MOTIONS_DIRECTORY_NAME = 'motions';
 const PROJECT_MODELS_DIRECTORY_NAME = 'models';
 const SIDENAV_WIDTH_STORAGE_KEY = 'recapture.session-sidenav-width';
@@ -296,6 +301,7 @@ function createSessionFromTemplate(participantId: string, template: ProjectPrese
     date: new Date().toISOString(),
     completed: false,
     recordingPath: null,
+    recordingDurationSeconds: null,
     templateId: template.id,
     exercises: [template.name],
   };
@@ -409,6 +415,7 @@ async function handleRecordSession(participantId: string, sessionId: string) {
       participantId,
       sessionId,
       outputDir: recordingResult.outputDir,
+      startedAt: Date.now(),
     };
   }
 }
@@ -745,8 +752,18 @@ async function handleStopIris() {
   }
 }
 
-async function saveSessionRecordingPath(participantId: string, sessionId: string, recordingPath: string) {
+async function saveSessionRecordingPath(
+  participantId: string,
+  sessionId: string,
+  recordingPath: string,
+  recordingDurationSeconds: number | null = null,
+) {
   if (!currentProject.value) return null;
+  const duration = typeof recordingDurationSeconds === 'number'
+    && Number.isFinite(recordingDurationSeconds)
+    && recordingDurationSeconds >= 0
+    ? Math.floor(recordingDurationSeconds)
+    : null;
 
   const nextParticipants = currentProject.value.participants.map((participant) => {
     if (participant.id !== participantId) {
@@ -757,7 +774,12 @@ async function saveSessionRecordingPath(participantId: string, sessionId: string
       ...participant,
       sessions: participant.sessions.map((session) =>
         session.id === sessionId
-          ? { ...session, recordingPath, completed: recordingPath.trim().length > 0 }
+          ? {
+            ...session,
+            recordingPath,
+            recordingDurationSeconds: duration,
+            completed: recordingPath.trim().length > 0,
+          }
           : session
       ),
     };
@@ -789,7 +811,7 @@ async function clearSessionRecordingPath(participantId: string, sessionId: strin
       sessions: participant.sessions.map((session) => {
         if (session.id !== sessionId) return session;
         clearedRecordingPath = typeof session.recordingPath === 'string' ? session.recordingPath.trim() : '';
-        return { ...session, recordingPath: null, completed: false };
+        return { ...session, recordingPath: null, recordingDurationSeconds: null, completed: false };
       }),
     };
   });
@@ -867,9 +889,17 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         const outputDir = typeof result.outputDir === 'string' && result.outputDir.trim().length > 0
           ? result.outputDir.trim()
           : sessionTarget?.outputDir?.trim() ?? '';
+        const durationSeconds = sessionTarget
+          ? Math.max(0, Math.floor((Date.now() - sessionTarget.startedAt) / 1000))
+          : null;
 
         if (sessionTarget && outputDir) {
-          await saveSessionRecordingPath(sessionTarget.participantId, sessionTarget.sessionId, outputDir);
+          await saveSessionRecordingPath(
+            sessionTarget.participantId,
+            sessionTarget.sessionId,
+            outputDir,
+            durationSeconds,
+          );
         }
       }
       return result;
