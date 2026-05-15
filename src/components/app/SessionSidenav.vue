@@ -75,26 +75,60 @@
         <h2 class="session-sidenav-title">{{ participant.name }}</h2>
 
         <div v-if="participant.sessions.length > 0" class="session-sidenav-list">
-          <button
+          <div
             v-for="session in participant.sessions"
             :key="session.id"
             class="session-sidenav-link session-trial-link"
-            :class="{ 'session-trial-link--complete': hasSessionRecording(session) }"
-            type="button"
-            :title="`Right click to manage ${session.name}`"
-            @contextmenu.prevent="openSessionMenu($event, participant.id, session.id)"
+            :class="{
+              'session-trial-link--complete': hasSessionRecording(session),
+              'session-trial-link--recording': isActiveSessionRecording(participant.id, session.id),
+              'session-trial-link--actionable': canToggleSessionRecording(participant.id, session),
+              'session-trial-link--disabled': isSessionBlockedByScale(participant.id, session),
+            }"
+            :role="canToggleSessionRecording(participant.id, session) ? 'button' : 'group'"
+            :tabindex="canToggleSessionRecording(participant.id, session) ? 0 : undefined"
+            :title="sessionRowTitle(participant.id, session)"
+            :aria-label="sessionRowAriaLabel(participant.id, session)"
+            @click="toggleSessionRecordingFromRow(participant.id, session)"
+            @keydown.enter.prevent="toggleSessionRecordingFromRow(participant.id, session)"
+            @keydown.space.prevent="toggleSessionRecordingFromRow(participant.id, session)"
           >
             <div class="link-left">
-              <span class="indicator" :class="{ 'indicator-complete': hasSessionRecording(session) }"></span>
+              <span
+                class="indicator"
+                :class="{
+                  'indicator-complete': hasSessionRecording(session),
+                  'indicator-recording': isActiveSessionRecording(participant.id, session.id),
+                }"
+              ></span>
               <div class="session-meta">
                 <span class="session-name">{{ session.name }}</span>
-                <span class="session-date">{{ formatSessionDate(session.date) }}</span>
+                <span
+                  v-if="shouldShowSessionTime(participant.id, session)"
+                  class="session-time"
+                >
+                  {{ sessionTimeLabel(participant.id, session) }}
+                </span>
               </div>
-              <span class="session-status">
-                {{ hasSessionRecording(session) ? 'Complete' : 'Pending' }}
-              </span>
             </div>
-          </button>
+            <button
+              v-if="hasSessionRecording(session) && !isActiveSessionRecording(participant.id, session.id)"
+              class="session-record-action session-record-action--delete"
+              type="button"
+              :disabled="recordingBusy"
+              :title="`Clear recording for ${session.name}`"
+              :aria-label="`Clear recording for ${session.name}`"
+              @click.stop="deleteSessionRecording(participant.id, session.id)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M8 6V4h8v2"></path>
+                <path d="M19 6l-1 14H6L5 6"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+            </button>
+          </div>
         </div>
         <div v-else class="session-sidenav-empty-state session-sidenav-empty-state--camera">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
@@ -163,43 +197,6 @@
     </div>
 
     <div
-      v-if="sessionMenu.visible"
-      class="template-context-menu"
-      :style="{ left: `${sessionMenu.x}px`, top: `${sessionMenu.y}px` }"
-    >
-      <button class="template-context-action" type="button" @click="recordSessionFromMenu">
-        Record Trial
-      </button>
-      <button
-        class="template-context-action"
-        :disabled="!canRecordMotion"
-        type="button"
-        @click="recordMotionFromMenu"
-      >
-        Record Motion
-      </button>
-      <button
-        class="template-context-action"
-        :disabled="!canRunOpenSim"
-        type="button"
-        @click="runOpenSimScaleFromMenu"
-      >
-        Run OpenSim Scale
-      </button>
-      <button
-        class="template-context-action"
-        :disabled="!canRunOpenSim"
-        type="button"
-        @click="runOpenSimIkFromMenu"
-      >
-        Run OpenSim IK
-      </button>
-      <button class="template-context-action" type="button" @click="linkRecordingsFromMenu">
-        Link Recordings
-      </button>
-    </div>
-
-    <div
       class="session-sidenav-resizer"
       role="separator"
       aria-orientation="vertical"
@@ -211,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useIris, type IrisCamera } from '@/lib/useIris';
 import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
 
@@ -225,6 +222,12 @@ interface Props {
   modeSwitchDisabled?: boolean;
   selectedCameraIds?: string[];
   currentProjectPath: string | null | undefined;
+  isRecording?: boolean;
+  recordingBusy?: boolean;
+  recordingParticipantId?: string | null;
+  recordingSessionId?: string | null;
+  staticSessionTemplateId?: string;
+  openSimScaleReadyParticipantIds?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -232,6 +235,12 @@ const props = withDefaults(defineProps<Props>(), {
   width: 240,
   modeSwitchDisabled: false,
   selectedCameraIds: () => [],
+  isRecording: false,
+  recordingBusy: false,
+  recordingParticipantId: null,
+  recordingSessionId: null,
+  staticSessionTemplateId: 'recapture-static-session',
+  openSimScaleReadyParticipantIds: () => [],
 });
 
 const emit = defineEmits<{
@@ -240,10 +249,7 @@ const emit = defineEmits<{
   'open-analysis': [];
   'open-mocap': [];
   'record-session': [{ participantId: string; sessionId: string }];
-  'record-motion': [{ participantId: string; sessionId: string }];
-  'run-session-opensim-scale': [{ participantId: string; sessionId: string }];
-  'run-session-opensim-ik': [{ participantId: string; sessionId: string }];
-  'link-recordings': [{ participantId: string; sessionId: string }];
+  'delete-session-recording': [{ participantId: string; sessionId: string }];
   'toggle-camera': [cameraId: string];
   'resize-sidebar': [width: number];
 }>();
@@ -251,13 +257,6 @@ const emit = defineEmits<{
 // State for the main cameras dropdown
 const isCamerasOpen = ref(true);
 const participants = computed(() => props.participants);
-const sessionMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  participantId: '',
-  sessionId: '',
-});
 const {
   cameras: irisCameras,
   isLoading: areIrisCamerasLoading,
@@ -272,46 +271,132 @@ const irisCameraErrorMessage = computed(() =>
   irisCamerasError.value ? 'Unable to load IRIS cameras.' : ''
 );
 const isResizing = ref(false);
-const selectedSession = computed(() => {
-  if (!sessionMenu.value.visible) return null;
-
-  const participant = participants.value.find((entry) => entry.id === sessionMenu.value.participantId);
-  return participant?.sessions.find((entry) => entry.id === sessionMenu.value.sessionId) ?? null;
-});
-const canRunOpenSim = computed(() => hasSessionRecording(selectedSession.value));
-const canRecordMotion = computed(() => hasSessionRecording(selectedSession.value));
+const recordingStartedAt = ref<number | null>(null);
+const recordingNow = ref(Date.now());
+let recordingTimer: ReturnType<typeof window.setInterval> | null = null;
 const selectedCameraCount = computed(() =>
   irisCameras.value.filter((camera) => camera.success && isCameraSelected(camera.id)).length
 );
 
-onMounted(() => {
-  window.addEventListener('click', closeSessionMenu);
-  window.addEventListener('blur', closeSessionMenu);
-  window.addEventListener('scroll', closeSessionMenu, true);
-});
-
 onBeforeUnmount(() => {
+  stopRecordingTimer();
   stopResize();
-  window.removeEventListener('click', closeSessionMenu);
-  window.removeEventListener('blur', closeSessionMenu);
-  window.removeEventListener('scroll', closeSessionMenu, true);
 });
 
-function formatSessionDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+watch(
+  () => [props.isRecording, props.recordingParticipantId, props.recordingSessionId] as const,
+  ([isRecording, participantId, sessionId]) => {
+    if (isRecording && participantId && sessionId) {
+      recordingStartedAt.value = Date.now();
+      startRecordingTimer();
+      return;
+    }
 
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+    recordingStartedAt.value = null;
+    recordingNow.value = Date.now();
+    stopRecordingTimer();
+  },
+  { immediate: true },
+);
+
+function startRecordingTimer() {
+  recordingNow.value = Date.now();
+  if (recordingTimer !== null) return;
+  recordingTimer = window.setInterval(() => {
+    recordingNow.value = Date.now();
+  }, 1000);
+}
+
+function stopRecordingTimer() {
+  if (recordingTimer === null) return;
+  window.clearInterval(recordingTimer);
+  recordingTimer = null;
+}
+
+function formatElapsedTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function hasSessionRecording(session: ProjectSession | null | undefined) {
   return !!session && typeof session.recordingPath === 'string' && session.recordingPath.trim().length > 0;
+}
+
+function hasRecordedDuration(session: ProjectSession | null | undefined) {
+  return !!session
+    && typeof session.recordingDurationSeconds === 'number'
+    && Number.isFinite(session.recordingDurationSeconds)
+    && session.recordingDurationSeconds >= 0;
+}
+
+function shouldShowSessionTime(participantId: string, session: ProjectSession) {
+  return isActiveSessionRecording(participantId, session.id) || hasRecordedDuration(session);
+}
+
+function sessionTimeLabel(participantId: string, session: ProjectSession) {
+  if (isActiveSessionRecording(participantId, session.id) && recordingStartedAt.value !== null) {
+    return formatElapsedTime(Math.floor((recordingNow.value - recordingStartedAt.value) / 1000));
+  }
+
+  if (hasRecordedDuration(session)) {
+    return formatElapsedTime(Math.floor(session.recordingDurationSeconds!));
+  }
+
+  return '';
+}
+
+function isActiveSessionRecording(participantId: string, sessionId: string) {
+  return props.isRecording
+    && props.recordingParticipantId === participantId
+    && props.recordingSessionId === sessionId;
+}
+
+function isStaticSession(session: ProjectSession) {
+  return session.templateId === props.staticSessionTemplateId;
+}
+
+function participantHasOpenSimScale(participantId: string) {
+  return props.openSimScaleReadyParticipantIds.includes(participantId);
+}
+
+function isSessionBlockedByScale(participantId: string, session: ProjectSession) {
+  return !isStaticSession(session) && !participantHasOpenSimScale(participantId);
+}
+
+function canToggleSessionRecording(participantId: string, session: ProjectSession) {
+  if (props.recordingBusy) return false;
+  if (isActiveSessionRecording(participantId, session.id)) return true;
+  if (isSessionBlockedByScale(participantId, session)) return false;
+  return !props.isRecording && !hasSessionRecording(session);
+}
+
+function sessionRowTitle(participantId: string, session: ProjectSession) {
+  if (isActiveSessionRecording(participantId, session.id)) return `Stop recording ${session.name}`;
+  if (isSessionBlockedByScale(participantId, session)) return 'Record and scale the static session first';
+  if (!hasSessionRecording(session) && !props.isRecording) return `Record and augment ${session.name}`;
+  if (hasSessionRecording(session)) return `Recording exists for ${session.name}`;
+  return 'Another session is recording';
+}
+
+function sessionRowAriaLabel(participantId: string, session: ProjectSession) {
+  if (isActiveSessionRecording(participantId, session.id)) return `${session.name}. Stop recording.`;
+  if (isSessionBlockedByScale(participantId, session)) return `${session.name}. Record and scale the static session first.`;
+  if (!hasSessionRecording(session) && !props.isRecording) return `${session.name}. Record and augment.`;
+  if (hasSessionRecording(session)) return `${session.name}. Recording exists.`;
+  return `${session.name}. Another session is recording.`;
+}
+
+function toggleSessionRecordingFromRow(participantId: string, session: ProjectSession) {
+  if (!canToggleSessionRecording(participantId, session)) return;
+  recordSessionWithAugmentation(participantId, session.id);
 }
 
 function isCameraSelected(cameraId: number | string) {
@@ -338,27 +423,6 @@ function toggleCamera(camera: IrisCamera) {
   emit('toggle-camera', String(camera.id));
 }
 
-function openSessionMenu(event: MouseEvent, participantId: string, sessionId: string) {
-  sessionMenu.value = {
-    visible: true,
-    x: event.clientX,
-    y: event.clientY,
-    participantId,
-    sessionId,
-  };
-}
-
-function closeSessionMenu() {
-  if (!sessionMenu.value.visible) return;
-  sessionMenu.value = {
-    visible: false,
-    x: 0,
-    y: 0,
-    participantId: '',
-    sessionId: '',
-  };
-}
-
 function isModeSwitchDisabled(view: AppView) {
   return props.modeSwitchDisabled && props.activeView !== view;
 }
@@ -379,56 +443,24 @@ function openMode(view: AppView) {
   }
 }
 
-function recordSessionFromMenu() {
+function recordSessionWithAugmentation(participantId: string, sessionId: string) {
   emit('record-session', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
+    participantId,
+    sessionId,
   });
-  closeSessionMenu();
+}
+
+function deleteSessionRecording(participantId: string, sessionId: string) {
+  emit('delete-session-recording', {
+    participantId,
+    sessionId,
+  });
 }
 
 function openRecordings() {
   let exists: boolean | undefined;
   if (props.currentProjectPath) exists = window.ipc?.openRecordings(props.currentProjectPath)
   if (exists) console.log("doesn't exist yet")
-}
-
-function recordMotionFromMenu() {
-  if (!canRecordMotion.value) return;
-
-  emit('record-motion', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
-}
-
-function runOpenSimScaleFromMenu() {
-  if (!canRunOpenSim.value) return;
-
-  emit('run-session-opensim-scale', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
-}
-
-function runOpenSimIkFromMenu() {
-  if (!canRunOpenSim.value) return;
-
-  emit('run-session-opensim-ik', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
-}
-
-function linkRecordingsFromMenu() {
-  emit('link-recordings', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
 }
 
 function beginResize() {
@@ -697,7 +729,7 @@ function stopResize() {
 }
 
 .session-name,
-.session-date {
+.session-time {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -706,23 +738,32 @@ function stopResize() {
   font-size: 0.9rem;
 }
 
-.session-date {
+.session-time {
   font-size: 0.75rem;
   color: var(--muted, #94a3b8);
-}
-
-.session-status {
-  margin-left: auto;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
 }
 
 .session-trial-link {
+  align-items: center;
+  justify-content: space-between;
   border: 1px solid rgba(107, 230, 117, 0.25);
   border-radius: 8px;
+  cursor: default;
+}
+
+.session-trial-link--actionable {
+  cursor: pointer;
+}
+
+.session-trial-link--disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.session-trial-link--disabled:hover {
+  background: transparent;
+  color: var(--sidenav-link, #4b5563);
 }
 
 .session-trial-link--complete {
@@ -730,8 +771,57 @@ function stopResize() {
   background: transparent;
 }
 
+.session-trial-link--recording {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.05);
+  animation: session-recording-pulse 1.4s ease-in-out infinite;
+}
+
+.session-record-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.session-record-action:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
+  transform: scale(1.04);
+}
+
+.session-record-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.session-record-action--delete {
+  color: var(--muted, #94a3b8);
+  background: transparent;
+  border-color: var(--sidenav-border, #d1d5db);
+}
+
+.session-record-action--delete:hover:not(:disabled) {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .indicator-complete {
   background-color: rgba(107, 230, 117, 0.75);
+}
+
+.indicator-recording {
+  background-color: #ef4444;
 }
 
 .indicator {
@@ -807,48 +897,47 @@ function stopResize() {
   background-color: var(--accent, #3b82f6);
 }
 
-.template-context-menu {
-  position: fixed;
-  z-index: 2000;
-  min-width: 180px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(17, 24, 39, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-:global([data-theme="light"]) .template-context-menu {
-  background: rgba(255, 255, 255, 0.98);
-  border-color: rgba(31, 78, 121, 0.12);
-}
-
-.template-context-action {
-  width: 100%;
-  border: 0;
+.session-trial-link--disabled:hover {
   background: transparent;
-  color: inherit;
-  padding: 10px 12px;
-  border-radius: 8px;
-  text-align: left;
-  font-size: 0.9rem;
-  cursor: pointer;
+  color: var(--sidenav-link, #4b5563);
 }
 
-.template-context-action:hover {
-  background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
+.session-trial-link--actionable:hover,
+.session-trial-link--actionable:focus-visible {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.48);
+  color: var(--sidenav-title, #111827);
+  outline: none;
 }
 
-.template-context-action:disabled {
-  opacity: 0.45;
-  cursor: default;
+.session-trial-link--actionable:hover .indicator:not(.camera-indicator),
+.session-trial-link--actionable:focus-visible .indicator:not(.camera-indicator) {
+  background-color: #ef4444;
 }
 
-.template-context-action:disabled:hover {
-  background: transparent;
+.session-trial-link--disabled:hover .indicator:not(.camera-indicator) {
+  background-color: var(--sidenav-border, #d1d5db);
+}
+
+@keyframes session-recording-pulse {
+  0%,
+  100% {
+    background: rgba(239, 68, 68, 0.06);
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+
+  50% {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.65);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-trial-link--recording {
+    animation: none;
+  }
 }
 
 .session-sidenav-divider {

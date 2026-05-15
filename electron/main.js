@@ -384,6 +384,17 @@ function ensureProjectPayload(projectData = {}, filePath = null, options = {}) {
                     const recordingPath = typeof session?.recordingPath === 'string' && session.recordingPath.trim()
                         ? session.recordingPath
                         : null;
+                    const recordingDurationSeconds = typeof session?.recordingDurationSeconds === 'number'
+                        && Number.isFinite(session.recordingDurationSeconds)
+                        && session.recordingDurationSeconds >= 0
+                        ? Math.floor(session.recordingDurationSeconds)
+                        : null;
+                    const opensimScalePath = typeof session?.opensimScalePath === 'string' && session.opensimScalePath.trim()
+                        ? session.opensimScalePath
+                        : null;
+                    const opensimIkPath = typeof session?.opensimIkPath === 'string' && session.opensimIkPath.trim()
+                        ? session.opensimIkPath
+                        : null;
 
                     return {
                         id: session?.id || `participant-${index + 1}-session-${sessionIndex + 1}`,
@@ -395,6 +406,9 @@ function ensureProjectPayload(projectData = {}, filePath = null, options = {}) {
                             : now,
                         completed: recordingPath !== null,
                         recordingPath,
+                        recordingDurationSeconds: recordingPath !== null ? recordingDurationSeconds : null,
+                        opensimScalePath: recordingPath !== null ? opensimScalePath : null,
+                        opensimIkPath: recordingPath !== null ? opensimIkPath : null,
                         templateId: typeof session?.templateId === 'string' ? session.templateId : null,
                         exercises: Array.isArray(session?.exercises)
                             ? session.exercises.filter((value) => typeof value === 'string')
