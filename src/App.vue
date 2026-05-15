@@ -60,6 +60,7 @@ const isRecording = ref(false);
 const isRecordingBusy = ref(false);
 const selectedRecordMode = ref<'plain' | 'augment'>('plain');
 const activeRecordMode = ref<'plain' | 'augment'>('plain');
+const activeSessionRecordingTarget = ref<{ participantId: string; sessionId: string; outputDir?: string } | null>(null);
 const PROJECT_MOTIONS_DIRECTORY_NAME = 'motions';
 const PROJECT_MODELS_DIRECTORY_NAME = 'models';
 const SIDENAV_WIDTH_STORAGE_KEY = 'recapture.session-sidenav-width';
@@ -133,11 +134,6 @@ const canStartMocapIris = computed(() =>
 );
 const canStopIris = computed(() =>
   isIrisRunning.value && !isStoppingIris.value && !isStartingIris.value
-);
-const canToggleRecording = computed(() =>
-  !!currentProject.value?.path
-  && !isRecordingBusy.value
-  && (isRecording.value || isIrisRunning.value)
 );
 
 function updateResolution(value: string) {
@@ -377,10 +373,25 @@ async function createProjectWithDefaultPreset() {
   });
 }
 
+function isActiveSessionRecordingTarget(participantId: string, sessionId: string) {
+  return activeSessionRecordingTarget.value?.participantId === participantId
+    && activeSessionRecordingTarget.value?.sessionId === sessionId;
+}
+
 async function handleRecordSession(participantId: string, sessionId: string) {
   const participant = currentProject.value?.participants.find((entry) => entry.id === participantId);
   const session = participant?.sessions.find((entry) => entry.id === sessionId);
   if (!participant || !session) return;
+
+  if (isRecording.value) {
+    if (!isActiveSessionRecordingTarget(participantId, sessionId)) {
+      notifyRecordingError('Stop the active recording before recording another session.');
+      return;
+    }
+
+    await handleToggleRecording();
+    return;
+  }
 
   setView('capture');
 
@@ -393,8 +404,12 @@ async function handleRecordSession(participantId: string, sessionId: string) {
     recordingPath: session.recordingPath,
     recordMode: 'augment',
   });
-  if (recordingResult?.ok && recordingResult.outputDir) {
-    await saveSessionRecordingPath(participantId, sessionId, recordingResult.outputDir);
+  if (recordingResult?.ok) {
+    activeSessionRecordingTarget.value = {
+      participantId,
+      sessionId,
+      outputDir: recordingResult.outputDir,
+    };
   }
 }
 
@@ -416,7 +431,10 @@ async function stopRecordingAfterFailedIrisStart() {
 
   isRecordingBusy.value = true;
   try {
-    await stopRecordingAndFinalize();
+    const result = await stopRecordingAndFinalize();
+    if (result?.ok) {
+      activeSessionRecordingTarget.value = null;
+    }
   } finally {
     isRecordingBusy.value = false;
   }
@@ -703,7 +721,10 @@ watch(() => currentProject.value?.path ?? null, async (nextPath, previousPath) =
 
   isRecordingBusy.value = true;
   try {
-    await stopRecordingAndFinalize();
+    const result = await stopRecordingAndFinalize();
+    if (result?.ok) {
+      activeSessionRecordingTarget.value = null;
+    }
   } finally {
     isRecordingBusy.value = false;
   }
@@ -747,6 +768,40 @@ async function saveSessionRecordingPath(participantId: string, sessionId: string
     workspace: {
       selectedRecordingPath: recordingPath,
     },
+  }, { save: true });
+}
+
+async function clearSessionRecordingPath(participantId: string, sessionId: string) {
+  if (!currentProject.value) return null;
+  if (isActiveSessionRecordingTarget(participantId, sessionId)) {
+    notifyRecordingError('Stop the active recording before clearing it.');
+    return null;
+  }
+
+  let clearedRecordingPath = '';
+  const nextParticipants = currentProject.value.participants.map((participant) => {
+    if (participant.id !== participantId) {
+      return participant;
+    }
+
+    return {
+      ...participant,
+      sessions: participant.sessions.map((session) => {
+        if (session.id !== sessionId) return session;
+        clearedRecordingPath = typeof session.recordingPath === 'string' ? session.recordingPath.trim() : '';
+        return { ...session, recordingPath: null, completed: false };
+      }),
+    };
+  });
+
+  const workspaceUpdate = clearedRecordingPath
+    && currentProject.value.workspace.selectedRecordingPath?.trim() === clearedRecordingPath
+    ? { selectedRecordingPath: null }
+    : {};
+
+  return updateCurrentProject({
+    participants: nextParticipants,
+    workspace: workspaceUpdate,
   }, { save: true });
 }
 
@@ -804,7 +859,20 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
 
   try {
     if (isRecording.value) {
-      return stopRecordingAndFinalize();
+      const result = await stopRecordingAndFinalize();
+      if (result?.ok) {
+        const sessionTarget = activeSessionRecordingTarget.value;
+        activeSessionRecordingTarget.value = null;
+
+        const outputDir = typeof result.outputDir === 'string' && result.outputDir.trim().length > 0
+          ? result.outputDir.trim()
+          : sessionTarget?.outputDir?.trim() ?? '';
+
+        if (sessionTarget && outputDir) {
+          await saveSessionRecordingPath(sessionTarget.participantId, sessionTarget.sessionId, outputDir);
+        }
+      }
+      return result;
     }
 
     const nextRecordMode = target.recordMode ?? selectedRecordMode.value;
@@ -879,11 +947,16 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :selectedCameraIds="selectedCameraIds"
         :current-project-path="currentProject?.path"
         :current-name="currentProject?.name"
+        :is-recording="isRecording"
+        :recording-busy="isRecordingBusy"
+        :recording-participant-id="activeSessionRecordingTarget?.participantId ?? null"
+        :recording-session-id="activeSessionRecordingTarget?.sessionId ?? null"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"
         @toggle-camera="handleToggleCamera"
         @record-session="handleRecordSession($event.participantId, $event.sessionId)"
+        @delete-session-recording="clearSessionRecordingPath($event.participantId, $event.sessionId)"
         @resize-sidebar="handleResizeSessionSidenav"
         @close-project="setCurrentProject(null)"
       />
@@ -895,25 +968,19 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :resolution="selectedResolution"
               :fps="selectedFps"
               :rotation="selectedRotation"
-              :record-mode="selectedRecordMode"
               :show-start-button="true"
               :show-stop-button="true"
-              :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
               :is-iris-running="isIrisRunning"
-              :is-recording="isRecording"
               :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
-              :record-disabled="!canToggleRecording"
               :current-screen="activeView"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
-              @update:record-mode="selectedRecordMode = $event"
               @start-iris="handleStartCaptureIris"
               @stop-iris="handleStopIris"
-              @toggle-recording="handleToggleRecording({ recordMode: $event.mode })"
             />
           </div>
           <FeedViewPage
@@ -927,25 +994,19 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
               :resolution="selectedResolution"
               :fps="selectedFps"
               :rotation="selectedRotation"
-              :record-mode="selectedRecordMode"
               :show-start-button="true"
               :show-stop-button="true"
-              :show-record-button="true"
               :is-starting-iris="isStartingIris"
               :is-stopping-iris="isStoppingIris"
               :is-iris-running="isIrisRunning"
-              :is-recording="isRecording"
               :start-disabled="!canStartIris"
               :stop-disabled="!canStopIris"
-              :record-disabled="!canToggleRecording"
               :current-screen="activeView"
               @update:resolution="updateResolution"
               @update:fps="updateFps"
               @update:rotation="updateRotation"
-              @update:record-mode="selectedRecordMode = $event"
               @start-iris="handleStartIris"
               @stop-iris="handleStopIris"
-              @toggle-recording="handleToggleRecording({ recordMode: $event.mode })"
             />
           </div>
           <ThreeWindow />
