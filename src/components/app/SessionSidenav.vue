@@ -81,8 +81,9 @@
             class="session-sidenav-link session-trial-link"
             :class="{ 'session-trial-link--complete': hasSessionRecording(session) }"
             type="button"
-            :title="`Right click to manage ${session.name}`"
-            @contextmenu.prevent="openSessionMenu($event, participant.id, session.id)"
+            :title="`Record and augment ${session.name}`"
+            :aria-label="`${session.name}, ${hasSessionRecording(session) ? 'complete' : 'pending'}. Record and augment.`"
+            @click="recordSessionWithAugmentation(participant.id, session.id)"
           >
             <div class="link-left">
               <span class="indicator" :class="{ 'indicator-complete': hasSessionRecording(session) }"></span>
@@ -92,6 +93,11 @@
               </div>
               <span class="session-status">
                 {{ hasSessionRecording(session) ? 'Complete' : 'Pending' }}
+              </span>
+              <span class="session-record-action" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="6"></circle>
+                </svg>
               </span>
             </div>
           </button>
@@ -163,43 +169,6 @@
     </div>
 
     <div
-      v-if="sessionMenu.visible"
-      class="template-context-menu"
-      :style="{ left: `${sessionMenu.x}px`, top: `${sessionMenu.y}px` }"
-    >
-      <button class="template-context-action" type="button" @click="recordSessionFromMenu">
-        Record Trial
-      </button>
-      <button
-        class="template-context-action"
-        :disabled="!canRecordMotion"
-        type="button"
-        @click="recordMotionFromMenu"
-      >
-        Record Motion
-      </button>
-      <button
-        class="template-context-action"
-        :disabled="!canRunOpenSim"
-        type="button"
-        @click="runOpenSimScaleFromMenu"
-      >
-        Run OpenSim Scale
-      </button>
-      <button
-        class="template-context-action"
-        :disabled="!canRunOpenSim"
-        type="button"
-        @click="runOpenSimIkFromMenu"
-      >
-        Run OpenSim IK
-      </button>
-      <button class="template-context-action" type="button" @click="linkRecordingsFromMenu">
-        Link Recordings
-      </button>
-    </div>
-
-    <div
       class="session-sidenav-resizer"
       role="separator"
       aria-orientation="vertical"
@@ -211,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useIris, type IrisCamera } from '@/lib/useIris';
 import type { ProjectParticipant, ProjectSession } from '@/lib/useProject';
 
@@ -240,10 +209,6 @@ const emit = defineEmits<{
   'open-analysis': [];
   'open-mocap': [];
   'record-session': [{ participantId: string; sessionId: string }];
-  'record-motion': [{ participantId: string; sessionId: string }];
-  'run-session-opensim-scale': [{ participantId: string; sessionId: string }];
-  'run-session-opensim-ik': [{ participantId: string; sessionId: string }];
-  'link-recordings': [{ participantId: string; sessionId: string }];
   'toggle-camera': [cameraId: string];
   'resize-sidebar': [width: number];
 }>();
@@ -251,13 +216,6 @@ const emit = defineEmits<{
 // State for the main cameras dropdown
 const isCamerasOpen = ref(true);
 const participants = computed(() => props.participants);
-const sessionMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  participantId: '',
-  sessionId: '',
-});
 const {
   cameras: irisCameras,
   isLoading: areIrisCamerasLoading,
@@ -272,29 +230,12 @@ const irisCameraErrorMessage = computed(() =>
   irisCamerasError.value ? 'Unable to load IRIS cameras.' : ''
 );
 const isResizing = ref(false);
-const selectedSession = computed(() => {
-  if (!sessionMenu.value.visible) return null;
-
-  const participant = participants.value.find((entry) => entry.id === sessionMenu.value.participantId);
-  return participant?.sessions.find((entry) => entry.id === sessionMenu.value.sessionId) ?? null;
-});
-const canRunOpenSim = computed(() => hasSessionRecording(selectedSession.value));
-const canRecordMotion = computed(() => hasSessionRecording(selectedSession.value));
 const selectedCameraCount = computed(() =>
   irisCameras.value.filter((camera) => camera.success && isCameraSelected(camera.id)).length
 );
 
-onMounted(() => {
-  window.addEventListener('click', closeSessionMenu);
-  window.addEventListener('blur', closeSessionMenu);
-  window.addEventListener('scroll', closeSessionMenu, true);
-});
-
 onBeforeUnmount(() => {
   stopResize();
-  window.removeEventListener('click', closeSessionMenu);
-  window.removeEventListener('blur', closeSessionMenu);
-  window.removeEventListener('scroll', closeSessionMenu, true);
 });
 
 function formatSessionDate(value: string) {
@@ -338,27 +279,6 @@ function toggleCamera(camera: IrisCamera) {
   emit('toggle-camera', String(camera.id));
 }
 
-function openSessionMenu(event: MouseEvent, participantId: string, sessionId: string) {
-  sessionMenu.value = {
-    visible: true,
-    x: event.clientX,
-    y: event.clientY,
-    participantId,
-    sessionId,
-  };
-}
-
-function closeSessionMenu() {
-  if (!sessionMenu.value.visible) return;
-  sessionMenu.value = {
-    visible: false,
-    x: 0,
-    y: 0,
-    participantId: '',
-    sessionId: '',
-  };
-}
-
 function isModeSwitchDisabled(view: AppView) {
   return props.modeSwitchDisabled && props.activeView !== view;
 }
@@ -379,56 +299,17 @@ function openMode(view: AppView) {
   }
 }
 
-function recordSessionFromMenu() {
+function recordSessionWithAugmentation(participantId: string, sessionId: string) {
   emit('record-session', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
+    participantId,
+    sessionId,
   });
-  closeSessionMenu();
 }
 
 function openRecordings() {
   let exists: boolean | undefined;
   if (props.currentProjectPath) exists = window.ipc?.openRecordings(props.currentProjectPath)
   if (exists) console.log("doesn't exist yet")
-}
-
-function recordMotionFromMenu() {
-  if (!canRecordMotion.value) return;
-
-  emit('record-motion', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
-}
-
-function runOpenSimScaleFromMenu() {
-  if (!canRunOpenSim.value) return;
-
-  emit('run-session-opensim-scale', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
-}
-
-function runOpenSimIkFromMenu() {
-  if (!canRunOpenSim.value) return;
-
-  emit('run-session-opensim-ik', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
-}
-
-function linkRecordingsFromMenu() {
-  emit('link-recordings', {
-    participantId: sessionMenu.value.participantId,
-    sessionId: sessionMenu.value.sessionId,
-  });
-  closeSessionMenu();
 }
 
 function beginResize() {
@@ -713,6 +594,7 @@ function stopResize() {
 
 .session-status {
   margin-left: auto;
+  flex-shrink: 0;
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -728,6 +610,26 @@ function stopResize() {
 .session-trial-link--complete {
   border-color: transparent;
   background: transparent;
+}
+
+.session-record-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.session-trial-link:hover .session-record-action {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
+  transform: scale(1.04);
 }
 
 .indicator-complete {
@@ -805,50 +707,6 @@ function stopResize() {
 
 .session-sidenav-link:hover .indicator:not(.camera-indicator) {
   background-color: var(--accent, #3b82f6);
-}
-
-.template-context-menu {
-  position: fixed;
-  z-index: 2000;
-  min-width: 180px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(17, 24, 39, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-:global([data-theme="light"]) .template-context-menu {
-  background: rgba(255, 255, 255, 0.98);
-  border-color: rgba(31, 78, 121, 0.12);
-}
-
-.template-context-action {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 10px 12px;
-  border-radius: 8px;
-  text-align: left;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.template-context-action:hover {
-  background: var(--sidenav-hover, rgba(255, 255, 255, 0.06));
-}
-
-.template-context-action:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.template-context-action:disabled:hover {
-  background: transparent;
 }
 
 .session-sidenav-divider {

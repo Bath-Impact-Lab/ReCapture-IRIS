@@ -391,6 +391,7 @@ async function handleRecordSession(participantId: string, sessionId: string) {
     participantName: participant.name,
     sessionName: session.name,
     recordingPath: session.recordingPath,
+    recordMode: 'augment',
   });
   if (recordingResult?.ok && recordingResult.outputDir) {
     await saveSessionRecordingPath(participantId, sessionId, recordingResult.outputDir);
@@ -883,10 +884,6 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         @open-analysis="setView('analysis')"
         @toggle-camera="handleToggleCamera"
         @record-session="handleRecordSession($event.participantId, $event.sessionId)"
-        @record-motion="handleRecordMotion($event.participantId, $event.sessionId)"
-        @run-session-opensim-scale="handleRunSessionOpenSimScale($event.participantId, $event.sessionId)"
-        @run-session-opensim-ik="handleRunSessionOpenSimIk($event.participantId, $event.sessionId)"
-        @link-recordings="handleLinkRecordings($event.participantId, $event.sessionId)"
         @resize-sidebar="handleResizeSessionSidenav"
         @close-project="setCurrentProject(null)"
       />
