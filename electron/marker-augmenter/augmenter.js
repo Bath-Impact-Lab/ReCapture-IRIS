@@ -1,9 +1,17 @@
 const ort = require('onnxruntime-node');
+const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-const MODEL_PATH = path.join(__dirname, 'augmenter.onnx');
 let cachedSession = null;
+
+function getModelPath() {
+    if (app?.isPackaged) {
+        return path.join(process.resourcesPath, 'app.asar', 'electron', 'marker-augmenter', 'augmenter.onnx');
+    }
+
+    return path.join(__dirname, 'augmenter.onnx');
+}
 
 function writeTRC(frames, markerNames, fps, outputPath) {
     const numFrames = frames.length;
@@ -48,7 +56,7 @@ function makeMarkerNames(count, prefix) {
 
 async function getSession() {
     if (!cachedSession) {
-        cachedSession = await ort.InferenceSession.create(MODEL_PATH);
+        cachedSession = await ort.InferenceSession.create(getModelPath());
     }
     return cachedSession;
 }

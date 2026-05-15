@@ -48,7 +48,8 @@
     "forceCodeSigning": false,
     "files": [
       "dist/**",
-      "electron/**"
+      "electron/**",
+      "electron/marker-augmenter/augmenter.onnx"
     ],
     "extraResources": [
       {
