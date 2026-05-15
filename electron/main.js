@@ -445,7 +445,7 @@ ipcMain.handle('project-create', async (event, projectData) => {
     const result = await dialog.showSaveDialog(getEventWindow(event), {
         title: 'New Participant',
         buttonLabel: 'Create',
-        defaultPath: path.join(defaultDir, `${defaultName}.${PROJECT_EXTENSION}`),
+        defaultPath: path.join(getDefaultProjectsDir(), 'Participant Name'),
         properties: ['showOverwriteConfirmation'],
     });
 
