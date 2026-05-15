@@ -78,8 +78,8 @@ function createProjectId() {
 }
 
 function inferProjectName(filePath: string | null | undefined) {
-  if (!filePath) return 'Untitled Project';
-  const name = filePath.split(/[\\/]/).pop() ?? 'Untitled Project';
+  if (!filePath) return 'New Participant';
+  const name = filePath.split(/[\\/]/).pop() ?? 'New Participant';
   return name.replace(/\.json$/i, '').replace(/\.recapture$/i, '');
 }
 
@@ -308,6 +308,7 @@ async function createProject(seed: Partial<ProjectFile> = {}) {
 
   if (window.ipc?.projectCreate) {
     const result = await window.ipc.projectCreate(toProjectFile(initialProject));
+    console.log(result, seed)
     if (!result.ok || result.canceled || !result.project) return null;
 
     const project = sanitizeProjectFile(result.project, result.path ?? null);
