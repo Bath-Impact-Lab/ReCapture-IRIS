@@ -51,6 +51,9 @@
       "electron/**",
       "electron/marker-augmenter/augmenter.onnx"
     ],
+    "asarUnpack": [
+      "electron/marker-augmenter/augmenter.onnx"
+    ],
     "extraResources": [
       {
         "from": "public/assets",

@@ -1,16 +1,87 @@
 const ort = require('onnxruntime-node');
 const { app } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 let cachedSession = null;
+let cachedModelPath = null;
+const MODEL_FILENAME = 'augmenter.onnx';
 
-function getModelPath() {
-    if (app?.isPackaged) {
-        return path.join(process.resourcesPath, 'app.asar', 'electron', 'marker-augmenter', 'augmenter.onnx');
+function isAsarPath(filePath) {
+    return filePath.includes(`${path.sep}app.asar${path.sep}`);
+}
+
+function toUnpackedAsarPath(filePath) {
+    return filePath.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
+}
+
+function getExtractedModelPath() {
+    let baseDir;
+
+    try {
+        baseDir = app?.getPath('userData');
+    } catch {
+        baseDir = null;
     }
 
-    return path.join(__dirname, 'augmenter.onnx');
+    return path.join(baseDir || os.tmpdir(), 'marker-augmenter', MODEL_FILENAME);
+}
+
+function extractModelFromAsar(asarModelPath) {
+    const extractedPath = getExtractedModelPath();
+    const extractedDir = path.dirname(extractedPath);
+    let shouldWrite = true;
+
+    try {
+        shouldWrite = !fs.existsSync(extractedPath)
+            || fs.statSync(extractedPath).size !== fs.statSync(asarModelPath).size;
+    } catch {
+        shouldWrite = true;
+    }
+
+    if (shouldWrite) {
+        fs.mkdirSync(extractedDir, { recursive: true });
+        fs.writeFileSync(extractedPath, fs.readFileSync(asarModelPath));
+    }
+
+    return extractedPath;
+}
+
+function getModelPath() {
+    if (cachedModelPath && fs.existsSync(cachedModelPath)) {
+        return cachedModelPath;
+    }
+
+    const moduleModelPath = path.join(__dirname, MODEL_FILENAME);
+    const candidates = [
+        toUnpackedAsarPath(moduleModelPath),
+    ];
+
+    if (app?.isPackaged && process.resourcesPath) {
+        candidates.push(
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'electron', 'marker-augmenter', MODEL_FILENAME),
+            path.join(process.resourcesPath, 'app', 'electron', 'marker-augmenter', MODEL_FILENAME),
+            path.join(process.resourcesPath, 'app.asar', 'electron', 'marker-augmenter', MODEL_FILENAME),
+        );
+    }
+
+    candidates.push(moduleModelPath);
+
+    const uniqueCandidates = [...new Set(candidates)];
+    const filesystemPath = uniqueCandidates.find(candidate => !isAsarPath(candidate) && fs.existsSync(candidate));
+    if (filesystemPath) {
+        cachedModelPath = filesystemPath;
+        return cachedModelPath;
+    }
+
+    const asarPath = uniqueCandidates.find(candidate => isAsarPath(candidate) && fs.existsSync(candidate));
+    if (asarPath) {
+        cachedModelPath = extractModelFromAsar(asarPath);
+        return cachedModelPath;
+    }
+
+    throw new Error(`augmenter.onnx not found. Checked: ${uniqueCandidates.join(', ')}`);
 }
 
 function writeTRC(frames, markerNames, fps, outputPath) {
@@ -56,7 +127,9 @@ function makeMarkerNames(count, prefix) {
 
 async function getSession() {
     if (!cachedSession) {
-        cachedSession = await ort.InferenceSession.create(getModelPath());
+        const modelPath = getModelPath();
+        console.log(`[augmenter] loading model from ${modelPath}`);
+        cachedSession = await ort.InferenceSession.create(modelPath);
     }
     return cachedSession;
 }
