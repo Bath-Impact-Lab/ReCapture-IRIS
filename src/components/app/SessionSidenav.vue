@@ -2,13 +2,6 @@
   <aside class="session-sidenav">
 
     <div class="session-sidenav-scroll-area">
-      <button class="close-project-btn" type="button" @click="emit('close-project')" title="Close project and return home">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-        Participants
-      </button>
-
       <div class="session-sidenav-section">
         <button
           class="dropdown-toggle"

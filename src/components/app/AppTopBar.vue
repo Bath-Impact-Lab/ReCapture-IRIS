@@ -171,15 +171,15 @@ function handleTitlebarDoubleClick(event: MouseEvent) {
 }
 
 .brand-text {
-  font-size: 0.85rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   color: var(--fg) !important;
   opacity: 0.9;
 }
 
 .brand-logo {
-  height: 20px;
+  height: 30px;
   width: auto;
   object-fit: contain;
 }

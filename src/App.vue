@@ -1134,7 +1134,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
   <div id="app-container" :data-theme="currentTheme" :style="appContainerStyle">
     
     <AppTopBar 
-      :appTitle="`ReCapture v${appVersion}`"
+      :appTitle="`ReCapture`"
       :homeDisabled="!hasCurrentProject"
       @toggle-settings="showSettings = !showSettings" 
       @navigate-home="setCurrentProject(null)"
