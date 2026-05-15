@@ -83,6 +83,7 @@
               'session-trial-link--complete': hasSessionRecording(session),
               'session-trial-link--recording': isActiveSessionRecording(participant.id, session.id),
               'session-trial-link--actionable': canToggleSessionRecording(participant.id, session),
+              'session-trial-link--disabled': isSessionBlockedByScale(participant.id, session),
             }"
             :role="canToggleSessionRecording(participant.id, session) ? 'button' : 'group'"
             :tabindex="canToggleSessionRecording(participant.id, session) ? 0 : undefined"
@@ -225,6 +226,8 @@ interface Props {
   recordingBusy?: boolean;
   recordingParticipantId?: string | null;
   recordingSessionId?: string | null;
+  staticSessionTemplateId?: string;
+  openSimScaleReadyParticipantIds?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -236,6 +239,8 @@ const props = withDefaults(defineProps<Props>(), {
   recordingBusy: false,
   recordingParticipantId: null,
   recordingSessionId: null,
+  staticSessionTemplateId: 'recapture-static-session',
+  openSimScaleReadyParticipantIds: () => [],
 });
 
 const emit = defineEmits<{
@@ -354,14 +359,28 @@ function isActiveSessionRecording(participantId: string, sessionId: string) {
     && props.recordingSessionId === sessionId;
 }
 
+function isStaticSession(session: ProjectSession) {
+  return session.templateId === props.staticSessionTemplateId;
+}
+
+function participantHasOpenSimScale(participantId: string) {
+  return props.openSimScaleReadyParticipantIds.includes(participantId);
+}
+
+function isSessionBlockedByScale(participantId: string, session: ProjectSession) {
+  return !isStaticSession(session) && !participantHasOpenSimScale(participantId);
+}
+
 function canToggleSessionRecording(participantId: string, session: ProjectSession) {
   if (props.recordingBusy) return false;
   if (isActiveSessionRecording(participantId, session.id)) return true;
+  if (isSessionBlockedByScale(participantId, session)) return false;
   return !props.isRecording && !hasSessionRecording(session);
 }
 
 function sessionRowTitle(participantId: string, session: ProjectSession) {
   if (isActiveSessionRecording(participantId, session.id)) return `Stop recording ${session.name}`;
+  if (isSessionBlockedByScale(participantId, session)) return 'Record and scale the static session first';
   if (!hasSessionRecording(session) && !props.isRecording) return `Record and augment ${session.name}`;
   if (hasSessionRecording(session)) return `Recording exists for ${session.name}`;
   return 'Another session is recording';
@@ -369,6 +388,7 @@ function sessionRowTitle(participantId: string, session: ProjectSession) {
 
 function sessionRowAriaLabel(participantId: string, session: ProjectSession) {
   if (isActiveSessionRecording(participantId, session.id)) return `${session.name}. Stop recording.`;
+  if (isSessionBlockedByScale(participantId, session)) return `${session.name}. Record and scale the static session first.`;
   if (!hasSessionRecording(session) && !props.isRecording) return `${session.name}. Record and augment.`;
   if (hasSessionRecording(session)) return `${session.name}. Recording exists.`;
   return `${session.name}. Another session is recording.`;
@@ -736,6 +756,16 @@ function stopResize() {
   cursor: pointer;
 }
 
+.session-trial-link--disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.session-trial-link--disabled:hover {
+  background: transparent;
+  color: var(--sidenav-link, #4b5563);
+}
+
 .session-trial-link--complete {
   border-color: transparent;
   background: transparent;
@@ -867,6 +897,11 @@ function stopResize() {
   background-color: var(--accent, #3b82f6);
 }
 
+.session-trial-link--disabled:hover {
+  background: transparent;
+  color: var(--sidenav-link, #4b5563);
+}
+
 .session-trial-link--actionable:hover,
 .session-trial-link--actionable:focus-visible {
   background: rgba(239, 68, 68, 0.16);
@@ -878,6 +913,10 @@ function stopResize() {
 .session-trial-link--actionable:hover .indicator:not(.camera-indicator),
 .session-trial-link--actionable:focus-visible .indicator:not(.camera-indicator) {
   background-color: #ef4444;
+}
+
+.session-trial-link--disabled:hover .indicator:not(.camera-indicator) {
+  background-color: var(--sidenav-border, #d1d5db);
 }
 
 @keyframes session-recording-pulse {

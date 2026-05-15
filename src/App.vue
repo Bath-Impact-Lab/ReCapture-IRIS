@@ -68,6 +68,8 @@ const activeSessionRecordingTarget = ref<{
 } | null>(null);
 const PROJECT_MOTIONS_DIRECTORY_NAME = 'motions';
 const PROJECT_MODELS_DIRECTORY_NAME = 'models';
+const STATIC_SESSION_TEMPLATE_ID = 'recapture-static-session';
+const STATIC_SESSION_NAME = 'Calibrate Person';
 const SIDENAV_WIDTH_STORAGE_KEY = 'recapture.session-sidenav-width';
 const DEFAULT_SIDENAV_WIDTH = 240;
 const MIN_SIDENAV_WIDTH = 220;
@@ -108,6 +110,11 @@ const activeProjectPreset = computed(() =>
   presets.value.find((preset) => preset.id === activeProjectPresetId.value) ?? presets.value[0] ?? null
 );
 const projectOutputDir = computed(() => getParentDirectory(currentProject.value?.path));
+const openSimScaleReadyParticipantIds = computed(() =>
+  currentProject.value?.participants
+    .filter((participant) => participantHasOpenSimScale(participant))
+    .map((participant) => participant.id) ?? []
+);
 const availableIrisCameras = computed(() => {
   if (selectedCameraIds.value.length === 0) return irisCameras.value;
   return irisCameras.value.filter((camera) => selectedCameraIds.value.includes(String(camera.id)));
@@ -246,6 +253,35 @@ function createEntityId(prefix: string) {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeSessionName(value: string | null | undefined) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function isStaticSession(session: ProjectSession | null | undefined) {
+  return !!session
+    && (
+      session.templateId === STATIC_SESSION_TEMPLATE_ID
+      || normalizeSessionName(session.name) === 'static'
+      || normalizeSessionName(session.name) === 'static session'
+    );
+}
+
+function findStaticSession(participant: ProjectParticipant | null | undefined) {
+  return participant?.sessions.find((session) => isStaticSession(session)) ?? null;
+}
+
+function participantHasOpenSimScale(participant: ProjectParticipant | null | undefined) {
+  const staticSession = findStaticSession(participant);
+  return typeof staticSession?.opensimScalePath === 'string'
+    && staticSession.opensimScalePath.trim().length > 0;
+}
+
+function getParticipantOpenSimScalePath(projectPath: string | null | undefined, participant: ProjectParticipant) {
+  const staticSession = findStaticSession(participant);
+  const storedPath = typeof staticSession?.opensimScalePath === 'string' ? staticSession.opensimScalePath.trim() : '';
+  return storedPath || getParticipantScaledModelPath(projectPath, participant.name);
+}
+
 function readStoredSidenavWidth() {
   if (typeof window === 'undefined') {
     return DEFAULT_SIDENAV_WIDTH;
@@ -302,50 +338,109 @@ function createSessionFromTemplate(participantId: string, template: ProjectPrese
     completed: false,
     recordingPath: null,
     recordingDurationSeconds: null,
+    opensimScalePath: null,
+    opensimIkPath: null,
     templateId: template.id,
     exercises: [template.name],
   };
 }
 
+function createStaticSession(participantId: string): ProjectSession {
+  return {
+    id: `${participantId}-static-session`,
+    name: STATIC_SESSION_NAME,
+    date: new Date().toISOString(),
+    completed: false,
+    recordingPath: null,
+    recordingDurationSeconds: null,
+    opensimScalePath: null,
+    opensimIkPath: null,
+    templateId: STATIC_SESSION_TEMPLATE_ID,
+    exercises: [STATIC_SESSION_NAME],
+  };
+}
+
+function normalizeStaticSession(session: ProjectSession | null | undefined, participantId: string): ProjectSession {
+  const baseSession = session ?? createStaticSession(participantId);
+  return {
+    ...baseSession,
+    id: baseSession.id || `${participantId}-static-session`,
+    name: STATIC_SESSION_NAME,
+    templateId: STATIC_SESSION_TEMPLATE_ID,
+    exercises: baseSession.exercises.length > 0 ? baseSession.exercises : [STATIC_SESSION_NAME],
+  };
+}
+
 function syncParticipantSessionsWithPreset(participant: ProjectParticipant, preset: ProjectPreset): ProjectParticipant {
+  const staticSession = normalizeStaticSession(findStaticSession(participant), participant.id);
   const preservedSessions = participant.sessions.filter((session) =>
-    !session.templateId || !preset.templates.some((template) => template.id === session.templateId)
+    !isStaticSession(session)
+    && (!session.templateId || !preset.templates.some((template) => template.id === session.templateId))
   );
 
-  const templatedSessions = preset.templates.map((template) => {
-    const existingSession = participant.sessions.find((session) =>
-      session.templateId === template.id || (!session.templateId && session.name === template.name)
-    );
+  const templatedSessions = preset.templates
+    .filter((template) => template.id !== STATIC_SESSION_TEMPLATE_ID)
+    .map((template) => {
+      const existingSession = participant.sessions.find((session) =>
+        session.templateId === template.id || (!session.templateId && session.name === template.name)
+      );
 
-    return existingSession
-      ? {
-        ...existingSession,
-        name: template.name,
-        templateId: template.id,
-      }
-      : createSessionFromTemplate(participant.id, template);
-  });
+      return existingSession
+        ? {
+          ...existingSession,
+          name: template.name,
+          templateId: template.id,
+        }
+        : createSessionFromTemplate(participant.id, template);
+    });
 
   return {
     ...participant,
-    sessions: [...templatedSessions, ...preservedSessions],
+    sessions: [staticSession, ...templatedSessions, ...preservedSessions],
   };
 }
 
 function syncParticipantsWithPreset(participants: ProjectParticipant[], preset: ProjectPreset | null): ProjectParticipant[] {
-  if (!preset) return participants;
+  if (!preset) {
+    return participants.map((participant) => {
+      const staticSession = normalizeStaticSession(findStaticSession(participant), participant.id);
+      return {
+        ...participant,
+        sessions: [
+          staticSession,
+          ...participant.sessions.filter((session) => !isStaticSession(session)),
+        ],
+      };
+    });
+  }
+
   return participants.map((participant) => syncParticipantSessionsWithPreset(participant, preset));
 }
 
 function projectNeedsPresetSync(participants: ProjectParticipant[], preset: ProjectPreset | null) {
-  if (!preset) return false;
-
   return participants.some((participant) => {
+    if (participant.sessions.findIndex((session) => isStaticSession(session)) !== 0) {
+      return true;
+    }
+
+    const staticSession = participant.sessions[0];
+    if (
+      !staticSession
+      || staticSession.templateId !== STATIC_SESSION_TEMPLATE_ID
+      || staticSession.name !== STATIC_SESSION_NAME
+    ) {
+      return true;
+    }
+
+    if (!preset) return false;
+
     const templateIds = participant.sessions
       .map((session) => session.templateId)
       .filter((value): value is string => typeof value === 'string');
 
-    return preset.templates.some((template) => !templateIds.includes(template.id));
+    return preset.templates
+      .filter((template) => template.id !== STATIC_SESSION_TEMPLATE_ID)
+      .some((template) => !templateIds.includes(template.id));
   });
 }
 
@@ -396,6 +491,11 @@ async function handleRecordSession(participantId: string, sessionId: string) {
     }
 
     await handleToggleRecording();
+    return;
+  }
+
+  if (!isStaticSession(session) && !participantHasOpenSimScale(participant)) {
+    notifyOpenSimError('Record and scale the static session before recording motion sessions.');
     return;
   }
 
@@ -547,8 +647,8 @@ async function handleRunSessionOpenSimScale(participantId: string, sessionId: st
   const recordingPath = typeof session?.recordingPath === 'string' ? session.recordingPath.trim() : '';
   const projectPath = currentProject.value?.path ?? '';
 
-  if (!participant || !session || !recordingPath) return;
-  if (!window.opensimAPI?.scaleModel) return;
+  if (!participant || !session || !recordingPath) return null;
+  if (!window.opensimAPI?.scaleModel) return null;
 
   try {
     const staticTrcPath = await ensureAugmentedRecordingData(recordingPath);
@@ -568,8 +668,13 @@ async function handleRunSessionOpenSimScale(participantId: string, sessionId: st
     if (!result?.success) {
       throw new Error(result?.error ?? 'OpenSim scaling failed.');
     }
+
+    const completedScaledModelPath = result.scaledModelPath?.trim() || scaledModelPath;
+    await saveSessionOpenSimScalePath(participantId, sessionId, completedScaledModelPath);
+    return completedScaledModelPath;
   } catch (error) {
     notifyOpenSimError(error instanceof Error ? error.message : 'OpenSim scaling failed.');
+    return null;
   }
 }
 
@@ -579,15 +684,15 @@ async function handleRunSessionOpenSimIk(participantId: string, sessionId: strin
   const recordingPath = typeof session?.recordingPath === 'string' ? session.recordingPath.trim() : '';
   const projectPath = currentProject.value?.path ?? '';
 
-  if (!participant || !session || !recordingPath) return;
-  if (!window.opensimAPI?.runIK) return;
+  if (!participant || !session || !recordingPath) return null;
+  if (!window.opensimAPI?.runIK) return null;
 
   try {
     const motionTrcPath = await ensureAugmentedRecordingData(recordingPath);
-    const scaledModelPath = getParticipantScaledModelPath(projectPath, participant.name);
+    const scaledModelPath = getParticipantOpenSimScalePath(projectPath, participant);
 
-    if (!scaledModelPath) {
-      throw new Error('Unable to resolve the participant scaled model path.');
+    if (!participantHasOpenSimScale(participant) || !scaledModelPath) {
+      throw new Error('Run OpenSim scale on the static session before IK.');
     }
 
     const result = await window.opensimAPI.runIK({
@@ -599,9 +704,32 @@ async function handleRunSessionOpenSimIk(participantId: string, sessionId: strin
     if (!result?.success) {
       throw new Error(result?.error ?? 'OpenSim IK failed.');
     }
+
+    const ikMotionPath = result.ikMotionPath?.trim() || null;
+    await saveSessionOpenSimIkPath(participantId, sessionId, ikMotionPath);
+    return ikMotionPath;
   } catch (error) {
     notifyOpenSimError(error instanceof Error ? error.message : 'OpenSim IK failed.');
+    return null;
   }
+}
+
+async function runPostRecordingOpenSim(participantId: string, sessionId: string) {
+  const participant = currentProject.value?.participants.find((entry) => entry.id === participantId);
+  const session = participant?.sessions.find((entry) => entry.id === sessionId);
+  if (!participant || !session) return;
+
+  if (isStaticSession(session)) {
+    await handleRunSessionOpenSimScale(participantId, sessionId);
+    return;
+  }
+
+  if (!participantHasOpenSimScale(participant)) {
+    notifyOpenSimError('Run OpenSim scale on the static session before IK.');
+    return;
+  }
+
+  await handleRunSessionOpenSimIk(participantId, sessionId);
 }
 
 async function handleSavePresetSettings({
@@ -778,6 +906,8 @@ async function saveSessionRecordingPath(
             ...session,
             recordingPath,
             recordingDurationSeconds: duration,
+            opensimScalePath: null,
+            opensimIkPath: null,
             completed: recordingPath.trim().length > 0,
           }
           : session
@@ -791,6 +921,48 @@ async function saveSessionRecordingPath(
       selectedRecordingPath: recordingPath,
     },
   }, { save: true });
+}
+
+async function saveSessionOpenSimScalePath(participantId: string, sessionId: string, opensimScalePath: string | null) {
+  if (!currentProject.value) return null;
+
+  const nextParticipants = currentProject.value.participants.map((participant) => {
+    if (participant.id !== participantId) {
+      return participant;
+    }
+
+    return {
+      ...participant,
+      sessions: participant.sessions.map((session) =>
+        session.id === sessionId
+          ? { ...session, opensimScalePath }
+          : session
+      ),
+    };
+  });
+
+  return updateCurrentProject({ participants: nextParticipants }, { save: true });
+}
+
+async function saveSessionOpenSimIkPath(participantId: string, sessionId: string, opensimIkPath: string | null) {
+  if (!currentProject.value) return null;
+
+  const nextParticipants = currentProject.value.participants.map((participant) => {
+    if (participant.id !== participantId) {
+      return participant;
+    }
+
+    return {
+      ...participant,
+      sessions: participant.sessions.map((session) =>
+        session.id === sessionId
+          ? { ...session, opensimIkPath }
+          : session
+      ),
+    };
+  });
+
+  return updateCurrentProject({ participants: nextParticipants }, { save: true });
 }
 
 async function clearSessionRecordingPath(participantId: string, sessionId: string) {
@@ -811,7 +983,14 @@ async function clearSessionRecordingPath(participantId: string, sessionId: strin
       sessions: participant.sessions.map((session) => {
         if (session.id !== sessionId) return session;
         clearedRecordingPath = typeof session.recordingPath === 'string' ? session.recordingPath.trim() : '';
-        return { ...session, recordingPath: null, recordingDurationSeconds: null, completed: false };
+        return {
+          ...session,
+          recordingPath: null,
+          recordingDurationSeconds: null,
+          opensimScalePath: null,
+          opensimIkPath: null,
+          completed: false,
+        };
       }),
     };
   });
@@ -900,6 +1079,7 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
             outputDir,
             durationSeconds,
           );
+          await runPostRecordingOpenSim(sessionTarget.participantId, sessionTarget.sessionId);
         }
       }
       return result;
@@ -981,6 +1161,8 @@ async function handleToggleRecording(target: RecordingTarget = {}) {
         :recording-busy="isRecordingBusy"
         :recording-participant-id="activeSessionRecordingTarget?.participantId ?? null"
         :recording-session-id="activeSessionRecordingTarget?.sessionId ?? null"
+        :static-session-template-id="STATIC_SESSION_TEMPLATE_ID"
+        :open-sim-scale-ready-participant-ids="openSimScaleReadyParticipantIds"
         @open-capture="setView('capture')"
         @open-mocap="setView('mocap')"
         @open-analysis="setView('analysis')"

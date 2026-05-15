@@ -27,6 +27,8 @@ export interface ProjectSession {
   completed: boolean;
   recordingPath: string | null;
   recordingDurationSeconds: number | null;
+  opensimScalePath: string | null;
+  opensimIkPath: string | null;
   templateId: string | null;
   exercises: string[];
 }
@@ -127,6 +129,12 @@ function sanitizeProjectParticipants(participants: unknown): ProjectParticipant[
             && maybeSession.recordingDurationSeconds >= 0
             ? Math.floor(maybeSession.recordingDurationSeconds)
             : null;
+          const opensimScalePath = typeof maybeSession?.opensimScalePath === 'string' && maybeSession.opensimScalePath.trim()
+            ? maybeSession.opensimScalePath
+            : null;
+          const opensimIkPath = typeof maybeSession?.opensimIkPath === 'string' && maybeSession.opensimIkPath.trim()
+            ? maybeSession.opensimIkPath
+            : null;
 
           return {
             id: maybeSession?.id || `${name.toLowerCase().replace(/\s+/g, '-')}-session-${sessionIndex + 1}`,
@@ -135,6 +143,8 @@ function sanitizeProjectParticipants(participants: unknown): ProjectParticipant[
             completed: recordingPath !== null,
             recordingPath,
             recordingDurationSeconds: recordingPath !== null ? recordingDurationSeconds : null,
+            opensimScalePath: recordingPath !== null ? opensimScalePath : null,
+            opensimIkPath: recordingPath !== null ? opensimIkPath : null,
             templateId: typeof maybeSession?.templateId === 'string' ? maybeSession.templateId : null,
             exercises: Array.isArray(maybeSession?.exercises)
               ? maybeSession.exercises.filter((value): value is string => typeof value === 'string')
@@ -214,6 +224,8 @@ function toProjectFile(project: ProjectDocument | ProjectFile): ProjectFile {
         recordingDurationSeconds: typeof session.recordingDurationSeconds === 'number' && session.recordingDurationSeconds >= 0
           ? Math.floor(session.recordingDurationSeconds)
           : null,
+        opensimScalePath: session.opensimScalePath,
+        opensimIkPath: session.opensimIkPath,
         templateId: session.templateId,
         exercises: [...session.exercises],
       })),
